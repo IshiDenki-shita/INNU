@@ -87,7 +87,6 @@ class CameraPublic:
         return clean
 
     def extract_red_hsv(self, img: np.ndarray) -> np.ndarray:
-        red = img.copy()
         img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
         # 赤色範囲
@@ -112,7 +111,7 @@ class BallDetection:
     def __init__(self, config: BallDetectionConfig) -> None:
         self.cfg = config
 
-    def find_red_circle(self, red: np.ndarray) -> Tuple[int, int, float]:
+    def find_circle_contour(self, red: np.ndarray) -> Tuple[int, int, float]:
 
         contours, hierarchy = cv2.findContours(
             image=red, mode=cv2.RETR_EXTERNAL, method=cv2.CHAIN_APPROX_NONE
@@ -150,39 +149,6 @@ class BallDetection:
 
         return (center_x, center_y, best_area)
 
-    def find_circle_hough(self, red: np.ndarray) -> np.ndarray | List:
-        red = red.astype(np.uint8)
-
-        circles = cv2.HoughCircles(
-            image=red,
-            method=cv2.HOUGH_GRADIENT,
-            dp=self.cfg.ACCUMULATOR_RATIO,
-            minDist=self.cfg.MIN_CIRCLE_DIST,
-            param1=self.cfg.CANNY_THRESH,
-            param2=self.cfg.CIRCLE_VOTE_THRESH,
-            minRadius=self.cfg.MIN_RADIUS,
-            maxRadius=self.cfg.MAX_RADIUS,
-        )
-
-        if circles is None:
-            return []
-
-        return circles
-
-    # not required probably
-    def calc_circle_hough(
-        self, circles: List[Tuple[float, float, float, float]]
-    ) -> List[float]:
-
-        features = []
-        for circle in circles:
-            x = circle[0]
-            y = circle[1]
-            r = circle[2]
-            S = r * r * math.pi
-            features.append((x, y, r, S))
-        return features
-
 
 if __name__ == "__main__":
     cam_cfg = CameraConfig()
@@ -206,10 +172,7 @@ if __name__ == "__main__":
             red = cam.extract_red_hsv(img=frame)
             clean = cam.remove_noise(red)
 
-            circles = ball.find_circle_hough(red=red)
-            features = ball.calc_circle_hough(circles)
-
-            x, y, S = ball.find_red_circle(red=clean)
+            x, y, S = ball.find_circle_contour(red=clean)
             # ------------------------------------
 
             count += 1

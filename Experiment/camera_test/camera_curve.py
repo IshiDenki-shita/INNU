@@ -25,17 +25,6 @@ class CameraConfig:
     FRAME_INTERVAL: float = 1.0 / TARGET_FPS
 
 
-@dataclass(frozen=True)
-class BallDetectionConfig:
-    # hough transformation
-    ACCUMULATOR_RATIO: float = 2
-    MIN_CIRCLE_DIST: float = 50
-    CANNY_THRESH: float = 100
-    CIRCLE_VOTE_THRESH: float = 20
-    MIN_RADIUS: int = 10
-    MAX_RADIUS: int = 200
-
-
 class Utility:
     def __init__(self) -> None: ...
 
@@ -105,47 +94,9 @@ class CameraPublic:
     def extract_red_bgr(self, img: np.ndarray) -> np.ndarray: ...
 
 
-class BallDetection:
-    def __init__(self, config: BallDetectionConfig) -> None:
-        self.cfg = config
-
-    def find_circle_hough(self, red: np.ndarray) -> np.ndarray | List:
-        red = red.astype(np.uint8)
-
-        circles = cv2.HoughCircles(
-            image=red,
-            method=cv2.HOUGH_GRADIENT,
-            dp=self.cfg.ACCUMULATOR_RATIO,
-            minDist=self.cfg.MIN_CIRCLE_DIST,
-            param1=self.cfg.CANNY_THRESH,
-            param2=self.cfg.CIRCLE_VOTE_THRESH,
-            minRadius=self.cfg.MIN_RADIUS,
-            maxRadius=self.cfg.MAX_RADIUS,
-        )
-
-        if circles is None:
-            return []
-
-        return circles
-
-    def calc_circle_hough(self, circles: np.ndarray) -> List[float]:
-
-        features = []
-        for circle in circles:
-            x = circle[0]
-            y = circle[1]
-            r = circle[2]
-            S = r * r * math.pi
-            features.append((x, y, r, S))
-
-        return features
-
-
 if __name__ == "__main__":
     cam_cfg = CameraConfig()
     cam = CameraPublic(config=cam_cfg)
-    ball_cfg = BallDetectionConfig()
-    ball = BallDetection(config=ball_cfg)
 
     picam2 = cam.start_camera()
     time.sleep(1)  # warm up
@@ -158,22 +109,6 @@ if __name__ == "__main__":
         while count < 500:
             start_time = time.perf_counter()
             frame = picam2.capture_array()
-
-            # --- ここに処理を書く（例：何もしない） ---
-            red = cam.extract_red_hsv(img=frame)
-            clean = cam.remove_noise(red)
-
-            circles = ball.find_circle_hough(red=red)
-            features = ball.calc_circle_hough(circles)
-            # ------------------------------------
-
-            count += 1
-
-            # 実FPS計測（確認用）
-            now = time.perf_counter()
-            actual_fps = 1.0 / (now - prev_time)
-            prev_time = now
-            fps_history.append(actual_fps)
 
         print(f"Target FPS: {cam_cfg.TARGET_FPS}\nActual FPS: {fps_history}")
         print(f"FPS mean: {sum(fps_history) / len(fps_history)}")

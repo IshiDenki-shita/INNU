@@ -48,6 +48,27 @@ class CameraPublic:
         self.cfg = config
         self.cfg.PHOTO_PATH.mkdir(parents=True, exist_ok=True)
 
+        data = np.load("camera_calibration.npz")
+        camera_matrix = data["camera_matrix"]
+        dist_coeffs = data["dist_coeffs"]
+
+        new_camera_matrix, roi = cv2.getOptimalNewCameraMatrix(
+            camera_matrix,
+            dist_coeffs,
+            (self.cfg.WIDTH, self.cfg.HEIGHT),
+            1,
+            (self.cfg.WIDTH, self.cfg.HEIGHT),
+        )
+
+        self.map1, self.map2 = cv2.initUndistortRectifyMap(
+            camera_matrix,
+            dist_coeffs,
+            None,
+            new_camera_matrix,
+            (self.cfg.WIDTH, self.cfg.HEIGHT),
+            cv2.CV_16SC2,
+        )
+
     def start_camera(self):
         picam2 = Picamera2()
 
@@ -203,7 +224,10 @@ if __name__ == "__main__":
             frame = picam2.capture_array()
 
             # --- ここに処理を書く（例：何もしない） ---
-            red = cam.extract_red_hsv(img=frame)
+            caliblated = cv2.remap(
+                frame, cam.map1, cam.map2, interpolation=cv2.INTER_LINEAR
+            )
+            red = cam.extract_red_hsv(img=caliblated)
             clean = cam.remove_noise(red)
 
             circles = ball.find_circle_hough(red=red)
