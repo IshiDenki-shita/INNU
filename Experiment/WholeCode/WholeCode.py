@@ -48,6 +48,7 @@ class CameraPublic:
         self.cfg = config
         self.cfg.PHOTO_PATH.mkdir(parents=True, exist_ok=True)
 
+        # calibration
         data = np.load("camera_calibration.npz")
         camera_matrix = data["camera_matrix"]
         dist_coeffs = data["dist_coeffs"]
@@ -108,7 +109,6 @@ class CameraPublic:
         return clean
 
     def extract_red_hsv(self, img: np.ndarray) -> np.ndarray:
-        red = img.copy()
         img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
         # 赤色範囲
