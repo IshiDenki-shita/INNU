@@ -53,9 +53,7 @@ class LiDAR:
         self.lidar.stop_motor()
         self.lidar.disconnect()
 
-
-class LiDARVisualizer:
-    def __init__(self, max_distance=8000):
+    def visualizer_start(self, max_distance=8000):
         plt.ion()
         self.fig = plt.figure(figsize=(8, 8))
         self.ax = self.fig.add_subplot(111, projection="polar")
@@ -63,7 +61,7 @@ class LiDARVisualizer:
         self.scatter = self.ax.scatter([], [], s=5)
         self.ax.set_title("RPLiDAR Real-time Scan")
 
-    def update(self, angles, distances):
+    def visualizer_update(self, angles, distances):
         points = np.column_stack((angles, distances))
         self.scatter.set_offsets(points)
         self.fig.canvas.draw()
@@ -75,11 +73,11 @@ if __name__ == "__main__":
 
     try:
         lidar.start()
-        visualizer = LiDARVisualizer()
+        lidar.visualizer_start()
 
         while True:
             angles, distances = lidar.get_scan_once()
-            visualizer.update(angles, distances)
+            lidar.visualizer_update(angles, distances)
 
     except KeyboardInterrupt:
         print("Stopping...")

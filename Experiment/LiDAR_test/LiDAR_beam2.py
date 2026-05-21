@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 from typing import Tuple
+
+import matplotlib.pyplot as plt
 import numpy as np
 from rplidar import RPLidar
 
@@ -51,6 +53,20 @@ class LiDAR:
         self.lidar.stop_motor()
         self.lidar.disconnect()
 
+    def visualizer_start(self, max_distance=8000):
+        plt.ion()
+        self.fig = plt.figure(figsize=(8, 8))
+        self.ax = self.fig.add_subplot(111, projection="polar")
+        self.ax.set_ylim(0, max_distance)
+        self.scatter = self.ax.scatter([], [], s=5)
+        self.ax.set_title("RPLiDAR Real-time Scan")
+
+    def visualizer_update(self, angles, distances):
+        points = np.column_stack((angles, distances))
+        self.scatter.set_offsets(points)
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+
 
 if __name__ == "__main__":
     lidar = LiDAR(LiDARConfig())
@@ -60,9 +76,7 @@ if __name__ == "__main__":
 
         while True:
             angles, distances = lidar.get_scan_once()
-
-            print(f"points: {len(angles)}")
-            print(f"min distance: {distances.min():.2f} mm")
+            lidar.visualizer_update(angles, distances)
 
     except KeyboardInterrupt:
         print("Stopping...")
