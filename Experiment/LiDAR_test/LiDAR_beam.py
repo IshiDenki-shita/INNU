@@ -1,3 +1,7 @@
+"""
+LiDARの周りに物体を近づけてみる。その時のLiDARが一番壁に近いと判断した方角の変化を確かめる
+"""
+
 from dataclasses import dataclass
 from typing import Tuple
 

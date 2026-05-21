@@ -1,3 +1,7 @@
+"""
+コードの完成予想を書いてみるパレット(LiDARに関して)
+"""
+
 from dataclasses import dataclass
 from typing import Tuple
 

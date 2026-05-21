@@ -1,3 +1,7 @@
+"""
+Raspberry pi 3B+で、一秒間に何枚の写真を撮れるか実験
+"""
+
 import math
 import time
 from pathlib import Path

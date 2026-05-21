@@ -1,3 +1,7 @@
+"""
+ラズパイのカメラモジュールで写真が撮れることを確認
+"""
+
 import math
 import time
 from pathlib import Path

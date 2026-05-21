@@ -1,3 +1,7 @@
+"""
+コードの完成予想を書いてみるパレット(カメラモジュールに関して)
+"""
+
 import math
 import time
 from pathlib import Path

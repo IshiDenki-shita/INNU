@@ -1,3 +1,7 @@
+"""
+LiDARで取得した各方角の距離を極座標表示でリアルタイム表示する
+"""
+
 from dataclasses import dataclass
 from typing import Tuple
 
