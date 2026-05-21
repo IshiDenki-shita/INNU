@@ -1,11 +1,10 @@
 import math
-import time
 from pathlib import Path
-import datetime
 from dataclasses import dataclass
 from typing import List, Tuple
 import numpy as np
 import cv2
+import matplotlib.pyplot as plt
 
 
 @dataclass(frozen=True)
@@ -36,6 +35,9 @@ class BallDetectionConfig:
     CIRCLE_VOTE_THRESH: float = 20
     MIN_RADIUS: int = 10
     MAX_RADIUS: int = 200
+    # calc ball position
+    theta_board = np.array([make pixel-theta matching when the camera condition confirmed])
+    distance_correction_val: np.float16 = this val will be decided by experiment
 
 
 class Utility:
@@ -45,6 +47,7 @@ class Utility:
 class CameraPublic:
     def __init__(self, config: CameraConfig):
         self.cfg = config
+        # self.cfg.PHOTO_PATH.mkdir(parents=True, exist_ok=True)
 
     def start_camera(self):
         picam2 = Picamera2()
@@ -86,21 +89,18 @@ class CameraPublic:
     def extract_red_hsv(self, img: np.ndarray) -> np.ndarray:
         img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
-        # 赤〜ピンクまで広めに許容
-
-        # 0付近
-        lower_red1 = np.array([0, 50, 50])
-        upper_red1 = np.array([20, 255, 255])
-
-        # 180付近
-        lower_red2 = np.array([160, 50, 70])
+        # 赤色範囲
+        # 赤はHSV空間で0/180をまたぐので2つ必要
+        lower_red1 = np.array([0, 120, 70])
+        upper_red1 = np.array([10, 255, 255])
+        lower_red2 = np.array([170, 120, 70])
         upper_red2 = np.array([180, 255, 255])
 
         # マスク作成
         mask1 = cv2.inRange(img_hsv, lower_red1, upper_red1)
         mask2 = cv2.inRange(img_hsv, lower_red2, upper_red2)
-
-        red_bin = cv2.bitwise_or(mask1, mask2)
+        red_bin = cv2.bitwise_or(src1=mask1, src2=mask2)
+        # red[np.where(red_bin == 0)] = 0
 
         return red_bin
 
@@ -149,64 +149,64 @@ class BallDetection:
 
         return (center_x, center_y, best_area)
 
-    def plot_red_detection(
+    def visualize_detection(
         self,
-        original_img: np.ndarray,
+        img: np.ndarray,
         red_mask: np.ndarray,
+        center_x: int,
+        center_y: int,
     ) -> None:
 
-        import matplotlib.pyplot as plt
+        vis = img.copy()
+        overlay = np.zeros_like(vis)
+        overlay[:, :, 2] = red_mask
+        vis = cv2.addWeighted(vis, 1.0, overlay, 0.5, 0)
 
-        contours, hierarchy = cv2.findContours(
-            image=red_mask,
-            mode=cv2.RETR_EXTERNAL,
-            method=cv2.CHAIN_APPROX_NONE,
-        )
+        if center_x >= 0 and center_y >= 0:
+            cross_size = 15
+            thickness = 3
+            color = (0, 255, 0)
+            cv2.line(
+                vis,
+                (center_x - cross_size, center_y - cross_size),
+                (center_x + cross_size, center_y + cross_size),
+                color,
+                thickness,
+            )
+            cv2.line(
+                vis,
+                (center_x + cross_size, center_y - cross_size),
+                (center_x - cross_size, center_y + cross_size),
+                color,
+                thickness,
+            )
 
-        overlay_img = original_img.copy()
-        overlay_img[red_mask > 0] = [0, 0, 255]
+            cv2.putText(
+                img=vis,
+                text=f"({center_x}, {center_y})",
+                org=(center_x + 20, center_y - 20),
+                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                fontScale=0.7,
+                color=color,
+                thickness=2,
+            )
 
-        overlay_img_rgb = cv2.cvtColor(
-            overlay_img,
-            cv2.COLOR_BGR2RGB,
-        )
-        contour_img = cv2.cvtColor(
-            red_mask,
-            cv2.COLOR_GRAY2BGR,
-        )
-
-        cv2.drawContours(
-            image=contour_img,
-            contours=contours,
-            contourIdx=-1,
-            color=(0, 255, 0),
-            thickness=2,
-        )
-
-        contour_img_rgb = cv2.cvtColor(
-            contour_img,
-            cv2.COLOR_BGR2RGB,
-        )
-
-        fig, axes = plt.subplots(
-            1,
-            2,
-            figsize=(14, 6),
-        )
-
-        # 画像1
-        axes[0].imshow(overlay_img_rgb)
-        axes[0].set_title("Original + Extracted Red")
-        axes[0].axis("off")
-
-        # 画像2
-        axes[1].imshow(contour_img_rgb)
-        axes[1].set_title("Binary + Contours")
-        axes[1].axis("off")
-
-        plt.tight_layout()
-
+        vis_rgb = cv2.cvtColor(vis, cv2.COLOR_BGR2RGB)
+        plt.figure(figsize=(10, 7))
+        plt.imshow(vis_rgb)
+        plt.title("Red Ball Detection")
+        plt.axis("off")
         plt.show()
+
+    def calc_ball_position(self, crood: Tuple[int, int], S: float) -> Tuple[float, float]:
+        # direction
+        theta_board = self.cfg.theta_board
+        theta = theta_board[crood]
+
+        # distance
+        distance = np.sqrt(S, dtype='float16') / self.distance_correction_val # meter
+
+        return theta, distance
 
 
 if __name__ == "__main__":
@@ -215,11 +215,18 @@ if __name__ == "__main__":
     ball_cfg = BallDetectionConfig()
     ball = BallDetection(config=ball_cfg)
 
-    # show extracted red contour
+    # testing
     img = cam.get_sample_photo()
     red = cam.extract_red_hsv(img=img)
     clean = cam.remove_noise(red)
-
-    ball.plot_red_detection(original_img=img, red_mask=clean)
-
     x, y, S = ball.find_circle_contour(red=clean)
+    theta, distance = ball.calc_ball_position(crood=(x,y), S=S)
+
+    print(f"x={x}, y={y}, area={S}, theta={theta}, distance={distance}")
+
+    ball.visualize_detection(
+        img=img,
+        red_mask=clean,
+        center_x=x,
+        center_y=y,
+    )
