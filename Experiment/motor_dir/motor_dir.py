@@ -13,12 +13,20 @@ class MotorConfig:
 
 
 class MotorSpinner:
+    # 基本
+    num_motor = 4  # モーターの数
+    # 進行方向
+    target_speed = 0
+    target_direction = 0
+    # モーターごとのデューティー比
+    motor_duties = [0] * num_motor
+
     def __init__(self):
         # モーターとの接続など
         ...
 
-    def DirUpdate(self, direction: np.float16):
-        # モーターへの
+    def DirUpdate(self, direction: np.float16, speed: np.float16):
+        # モーターのPWM出力を計算し、更新する関数
         ...
 
     def PWMshootor(self):
