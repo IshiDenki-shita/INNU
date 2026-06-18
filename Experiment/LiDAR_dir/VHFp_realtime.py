@@ -1,8 +1,7 @@
 """
-進行方向を0°に固定し、障害物をLiDARに近づけた時の目標経路の変化を見る。
+進行方向を0°に固定し、障害物をLiDARに近づけた時の目標経路の変化をリアルタイムで見る。
 """
 
-from typing import List, Tuple
 from dataclasses import dataclass
 import numpy as np
 import matplotlib.pyplot as plt
@@ -25,7 +24,7 @@ class VFHPlus:
         angles: degree
         distances: meter
         """
-        hist = np.zeros(self.cfg.sector_deg)
+        hist = np.zeros(360 // self.cfg.sector_deg)
 
         for angle, dist in zip(angles, distances):
 
@@ -54,7 +53,7 @@ class VFHPlus:
                 angle = i * self.cfg.sector_deg
                 candidates.append(angle)
 
-        return np.ndarray(candidates)
+        return np.array(candidates)
 
     def choose_direction(self, candidates: np.ndarray, target_angle=0) -> float:
 
@@ -86,22 +85,35 @@ def demo():
     lidar_angles = np.arange(360)
     lidar_distances = np.ones(360) * 3.0
 
-    lidar_distances[350:360] = 0.5
-    lidar_distances[0:10] = 0.5
+    plt.ion()
+    fig, ax = plt.subplots(figsize=(10, 4))
+    (line_hist,) = ax.plot(np.zeros(360 // 5))
+    line_dir = ax.axvline(x=0, color="r", linestyle="--")
+    ax.set_title("Polar Histogram")
+    ax.set_xlabel("Sector")
+    ax.set_ylabel("Obstacle Density")
+    ax.set_xlim(0, 360 // 5 - 1)
+    ax.set_ylim(0, 5)
+
     vfh = VFHPlus(cfg=VHFPlus_config())
 
-    direction, hist = vfh.compute(
-        lidar_angles,
-        lidar_distances,
-        target_angle=0,
-    )
+    for dist in np.linspace(3.0, 0.3, 100):
+        lidar_distances[350:360] = dist
+        lidar_distances[0:10] = dist
 
-    print(f"selected direction: {direction}")
-    plt.figure(figsize=(10, 4))
-    plt.plot(hist)
-    plt.title("Polar Histogram")
-    plt.xlabel("Sector")
-    plt.ylabel("Obstacle Density")
+        direction, hist = vfh.compute(
+            lidar_angles,
+            lidar_distances,
+            target_angle=0,
+        )
+
+        line_hist.set_ydata(hist)
+        line_dir.set_xdata(direction / vfh.cfg.sector_deg)
+        fig.canvas.draw()
+        fig.canvas.flush_events()
+        plt.pause(0.05)
+
+    plt.ioff()
     plt.show()
 
 
