@@ -23,3 +23,5 @@ https://github.com/joan2937/pigpio/archive/master.zip
 
 ・ROSに関するリポジトリ（クローン）
 https://github.com/Slamtec/rplidar_ros.git
+
+・その他の使用ライブラリはrequirements.txtを参照してください。
