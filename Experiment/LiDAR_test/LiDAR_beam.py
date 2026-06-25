@@ -2,29 +2,23 @@
 LiDARの周りに物体を近づけてみる。その時のLiDARが一番壁に近いと判断した方角の変化を確かめる
 """
 
-import time
 from dataclasses import dataclass
 from typing import Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-from rplidar import RPLidar, RPLidarException
-from serial import SerialException
+from rplidar import RPLidar
 
 
 @dataclass
 class LiDARConfig:
     port: str = "/dev/ttyUSB0"
-    max_buf_meas: int = 3000  # シリアル受信バッファの上限（rplidarライブラリ既定値）
-    max_retry: int = 5  # 通信エラー時の再接続リトライ回数
-    retry_wait_sec: float = 2.0  # 再接続前の待機時間
 
 
 class LiDAR:
     def __init__(self, cfg: LiDARConfig):
         self.cfg = cfg
         self.lidar = None
-        self.scan_generator = None
 
     def start(self):
         self.lidar = RPLidar(self.cfg.port)
@@ -32,55 +26,20 @@ class LiDAR:
         print("LiDAR info:", self.lidar.get_info())
         print("Health:", self.lidar.get_health())
 
-        self.scan_generator = self.lidar.iter_scans(max_buf_meas=self.cfg.max_buf_meas)
+    def iter_scans(self):
+        # サンプルコードと同じく、infoとhealthを確認したらそのままiter_scansに入る
+        for scan in self.lidar.iter_scans():
+            angles = []
+            distances = []
 
-    def _reconnect(self):
-        # 落ちた接続を片付けてから、startをやり直す
-        print("LiDARを再接続しています...")
+            for quality, angle, distance in scan:
+                angles.append(angle)
+                distances.append(distance)
 
-        if self.lidar is not None:
-            try:
-                self.lidar.stop()
-                self.lidar.stop_motor()
-                self.lidar.disconnect()
-            except Exception:
-                pass  # 片付け中の例外は無視して良い
-
-        self.lidar = None
-        self.scan_generator = None
-
-        time.sleep(self.cfg.retry_wait_sec)
-        self.start()
-
-    def get_scan_once(self) -> Tuple[np.ndarray, np.ndarray]:
-        if self.lidar is None:
-            raise RuntimeError("LiDAR が起動されていません")
-        if self.scan_generator is None:
-            raise RuntimeError("lidar.iter_scans が機能していません")
-
-        for attempt in range(1, self.cfg.max_retry + 1):
-            try:
-                scan = next(self.scan_generator)
-                break
-            except (RPLidarException, SerialException) as e:
-                print(f"LiDAR通信エラー ({attempt}/{self.cfg.max_retry}): {e}")
-                if attempt == self.cfg.max_retry:
-                    raise
-                self._reconnect()
-        else:
-            raise RuntimeError("LiDARからのスキャン取得に失敗しました")
-
-        angles = []
-        distances = []
-
-        for quality, angle, distance in scan:
-            angles.append(angle)
-            distances.append(distance)
-
-        return (
-            np.array(angles, dtype=np.float32),
-            np.array(distances, dtype=np.float32),
-        )
+            yield (
+                np.array(angles, dtype=np.float32),
+                np.array(distances, dtype=np.float32),
+            )
 
     def stop(self):
         if self.lidar is None:
@@ -112,8 +71,7 @@ if __name__ == "__main__":
         lidar.start()
         lidar.visualizer_start()
 
-        while True:
-            angles, distances = lidar.get_scan_once()
+        for angles, distances in lidar.iter_scans():
             lidar.visualizer_update(angles, distances)
 
     except KeyboardInterrupt:
