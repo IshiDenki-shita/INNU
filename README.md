@@ -1,3 +1,4 @@
+
 ## 概要
 これはPBL課題に関するソースコードをまとめたリポジトリです。
 
@@ -5,6 +6,7 @@
 ・Raspberry Pi 3B+
 ・Raspberry pi camera module 2
 ・RPLiDAR A1M8-R6
+・L298N     ※モータードライバ
 
 ## 環境
 
@@ -13,7 +15,7 @@
 ・bionic
 
 ・picamera2はラズパイOSで動きます。Macで動きません。
-・python3.11.xを使ってください
+・python3.11.11を使ってください
 ・ubuntuのバージョンの影響で、Pythonは手動でインストールする必要があります。
 
 ## 使用したもの
