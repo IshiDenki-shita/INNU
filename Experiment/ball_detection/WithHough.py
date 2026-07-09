@@ -1,5 +1,7 @@
+import sys
 import math
 import time
+import logging
 from pathlib import Path
 import datetime
 from dataclasses import dataclass
@@ -7,6 +9,13 @@ from typing import List, Tuple
 import numpy as np
 import cv2
 from picamera2 import Picamera2
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    stream=sys.stdout,
+)
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -140,6 +149,29 @@ class BallDetection:
 
         return features
 
+    def draw_detection_overlay(
+        self,
+        original_img: np.ndarray,
+        red_mask: np.ndarray,
+        features: List[Tuple[float, float, float, float]],
+    ) -> np.ndarray:
+        overlay_img = original_img.copy()
+        overlay_img[red_mask > 0] = [0, 0, 255]
+
+        for x, y, r, S in features:
+            center = (int(x), int(y))
+            cv2.circle(overlay_img, center, int(r), (0, 255, 0), thickness=2)
+            cv2.drawMarker(
+                overlay_img,
+                center,
+                (255, 255, 255),
+                markerType=cv2.MARKER_CROSS,
+                markerSize=16,
+                thickness=2,
+            )
+
+        return overlay_img
+
 
 if __name__ == "__main__":
     cam_cfg = CameraConfig()
@@ -148,15 +180,13 @@ if __name__ == "__main__":
     ball = BallDetection(config=ball_cfg)
 
     picam2 = cam.start_camera()
+    logger.debug("Camera started")
     time.sleep(1)  # warm up
 
     prev_time = time.time()
-    fps_history = []
-    count = 0
 
     try:
-        while count < 500:
-            start_time = time.perf_counter()
+        while True:
             frame = picam2.capture_array()
 
             # --- ここに処理を書く（例：何もしない） ---
@@ -167,16 +197,26 @@ if __name__ == "__main__":
             features = ball.calc_circle_hough(circles)
             # ------------------------------------
 
-            count += 1
+            for x, y, r, S in features:
+                logger.debug(f"Detected center: (x={x}, y={y}), r={r}, area={S}")
+
+            overlay = ball.draw_detection_overlay(
+                original_img=frame, red_mask=clean, features=features
+            )
+            cv2.imshow("Hough Circle Detection", overlay)
 
             # 実FPS計測（確認用）
             now = time.perf_counter()
             actual_fps = 1.0 / (now - prev_time)
             prev_time = now
-            fps_history.append(actual_fps)
+            logger.debug(f"Actual FPS: {actual_fps:.2f}")
 
-        print(f"Target FPS: {cam_cfg.TARGET_FPS}\nActual FPS: {fps_history}")
-        print(f"FPS mean: {sum(fps_history) / len(fps_history)}")
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+
+    except KeyboardInterrupt:
+        print("Stopping...")
 
     finally:
         picam2.stop()
+        cv2.destroyAllWindows()
