@@ -1,11 +1,9 @@
 import sys
-import math
 import time
 import logging
 from pathlib import Path
-import datetime
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import List, Tuple, Union
 import numpy as np
 import cv2
 from picamera2 import Picamera2
@@ -30,7 +28,7 @@ class CameraConfig:
     MORPH_KERNEL_SHAPE: Tuple = (5, 5)
     MORPH_ITERATION: int = 1
     # FPS
-    TARGET_FPS: int = 10
+    TARGET_FPS: int = 30
     FRAME_INTERVAL: float = 1.0 / TARGET_FPS
 
 
@@ -118,7 +116,7 @@ class BallDetection:
     def __init__(self, config: BallDetectionConfig) -> None:
         self.cfg = config
 
-    def find_circle_hough(self, red: np.ndarray) -> np.ndarray | List:
+    def find_circle_hough(self, red: np.ndarray) -> Union[np.ndarray, List]:
         red = red.astype(np.uint8)
 
         circles = cv2.HoughCircles(
@@ -137,15 +135,19 @@ class BallDetection:
 
         return circles
 
-    def calc_circle_hough(self, circles: np.ndarray) -> List[float]:
+    def calc_circle_hough(
+        self, circles: Union[np.ndarray, List]
+    ) -> List[Tuple[float, float, float, float]]:
 
         features = []
-        for circle in circles:
-            x = circle[0]
-            y = circle[1]
-            r = circle[2]
-            S = r * r * math.pi
-            features.append((x, y, r, S))
+        if len(circles) == 0:
+            return features
+
+        # cv2.HoughCirclesの戻り値は shape (1, N, 3) なので [0] で余分な次元を外す
+        for circle in circles[0]:
+            x, y, r = circle
+            S = r * r * np.pi
+            features.append((float(x), float(y), float(r), float(S)))
 
         return features
 
