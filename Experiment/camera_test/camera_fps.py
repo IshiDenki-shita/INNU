@@ -1,5 +1,5 @@
 """
-Raspberry pi 3B+で、一秒間に何枚の写真を撮れるか実験
+Raspberry pi 4Bで、一秒間に何枚の写真を撮れるか実験
 """
 
 import math

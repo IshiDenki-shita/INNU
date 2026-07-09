@@ -2,7 +2,12 @@
 
 import time
 import cv2
+from pathlib import Path
 from picamera2 import Picamera2
+
+save_path = Path("/home/ubuntu/Desktop/INNU/Experiment/camera_test/photos")
+save_path.mkdir(exist_ok=True)
+save_path = Path("/home/ubuntu/Desktop/INNU/Experiment/camera_test/photos/capture")
 
 
 def main():
@@ -26,9 +31,7 @@ def main():
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
     # 保存
-    save_path = "/home/ubuntu/Desktop/capture.jpg"
     cv2.imwrite(save_path, image)
-
     print(f"保存しました: {save_path}")
 
     # 表示

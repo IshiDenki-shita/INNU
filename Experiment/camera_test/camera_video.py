@@ -3,7 +3,6 @@
 """
 
 from dataclasses import dataclass
-from typing import Tuple
 
 import cv2
 from picamera2 import Picamera2

@@ -1,3 +1,7 @@
+"""
+カメラと接続できるか試すコード
+"""
+
 #!/usr/bin/env python3
 
 from picamera2 import Picamera2
