@@ -30,7 +30,7 @@ class CameraConfig:
     MORPH_KERNEL_SHAPE: Tuple = (5, 5)
     MORPH_ITERATION: int = 1
     # FPS
-    TARGET_FPS: int = 10
+    TARGET_FPS: int = 30
     FRAME_INTERVAL: float = 1.0 / TARGET_FPS
 
 

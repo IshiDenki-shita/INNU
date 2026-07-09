@@ -14,7 +14,7 @@ class CameraConfig:
     WIDTH: int = 640
     HEIGHT: int = 480
     # FPS
-    TARGET_FPS: int = 10
+    TARGET_FPS: int = 30
     # window
     WINDOW_NAME: str = "INNU Camera"
 

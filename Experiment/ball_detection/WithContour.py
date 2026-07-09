@@ -1,11 +1,18 @@
-import math
-import time
+import sys
+import logging
 from pathlib import Path
-import datetime
+from typing import Tuple
 from dataclasses import dataclass
-from typing import List, Tuple
 import numpy as np
 import cv2
+from picamera2 import Picamera2
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    stream=sys.stdout,
+)
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -20,7 +27,7 @@ class CameraConfig:
     MORPH_KERNEL_SHAPE: Tuple = (5, 5)
     MORPH_ITERATION: int = 1
     # FPS
-    TARGET_FPS: int = 10
+    TARGET_FPS: int = 30
     FRAME_INTERVAL: float = 1.0 / TARGET_FPS
 
 
@@ -29,13 +36,6 @@ class BallDetectionConfig:
     # find contour
     MIN_CIRCLE_SIZE: int = 100
     THRESH_CIRCULARITY: float = 0.8
-    # hough transformation
-    ACCUMULATOR_RATIO: float = 2
-    MIN_CIRCLE_DIST: float = 50
-    CANNY_THRESH: float = 100
-    CIRCLE_VOTE_THRESH: float = 20
-    MIN_RADIUS: int = 10
-    MAX_RADIUS: int = 200
 
 
 class Utility:
@@ -45,11 +45,12 @@ class Utility:
 class CameraPublic:
     def __init__(self, config: CameraConfig):
         self.cfg = config
+        self.cam = None
 
     def start_camera(self):
-        picam2 = Picamera2()
+        self.cam = Picamera2()
 
-        config = picam2.create_preview_configuration(
+        config = self.cam.create_preview_configuration(
             main={"size": (self.cfg.WIDTH, self.cfg.HEIGHT), "format": "BGR888"},
             controls={
                 "FrameDurationLimits": (
@@ -58,10 +59,11 @@ class CameraPublic:
                 )
             },
         )
-        picam2.configure(config)
-        picam2.start()
+        self.cam.configure(config)
+        self.cam.start()
 
-        return picam2
+    def get_frame(self) -> np.ndarray:
+        return self.cam.capture_array()
 
     def get_sample_photo(self):
         img = cv2.imread(str(self.cfg.PHOTO_PATH))
@@ -104,8 +106,6 @@ class CameraPublic:
 
         return red_bin
 
-    def extract_red_bgr(self, img: np.ndarray) -> np.ndarray: ...
-
 
 class BallDetection:
     def __init__(self, config: BallDetectionConfig) -> None:
@@ -127,7 +127,7 @@ class BallDetection:
                 continue
 
             perimeter = cv2.arcLength(curve=contour, closed=True)
-            circularity = 4 * math.pi * area / (perimeter * perimeter)
+            circularity = 4 * np.pi * area / (perimeter * perimeter)
 
             if circularity < self.cfg.THRESH_CIRCULARITY:
                 continue
@@ -208,6 +208,29 @@ class BallDetection:
 
         plt.show()
 
+    def draw_detection_overlay(
+        self,
+        original_img: np.ndarray,
+        red_mask: np.ndarray,
+        center_x: int,
+        center_y: int,
+    ) -> np.ndarray:
+        overlay_img = original_img.copy()
+        overlay_img[red_mask > 0] = [0, 0, 255]
+
+        if center_x >= 0 and center_y >= 0:
+            cv2.circle(overlay_img, (center_x, center_y), 6, (0, 255, 0), thickness=-1)
+            cv2.drawMarker(
+                overlay_img,
+                (center_x, center_y),
+                (255, 255, 255),
+                markerType=cv2.MARKER_CROSS,
+                markerSize=16,
+                thickness=2,
+            )
+
+        return overlay_img
+
 
 if __name__ == "__main__":
     cam_cfg = CameraConfig()
@@ -215,11 +238,28 @@ if __name__ == "__main__":
     ball_cfg = BallDetectionConfig()
     ball = BallDetection(config=ball_cfg)
 
-    # show extracted red contour
-    img = cam.get_sample_photo()
-    red = cam.extract_red_hsv(img=img)
-    clean = cam.remove_noise(red)
+    cam.start_camera()
+    logger.debug("Camera started")
 
-    ball.plot_red_detection(original_img=img, red_mask=clean)
+    try:
+        while True:
+            img = cam.get_frame()
+            red = cam.extract_red_hsv(img=img)
+            clean = cam.remove_noise(red)
 
-    x, y, S = ball.find_circle_contour(red=clean)
+            x, y, S = ball.find_circle_contour(red=clean)
+            logger.debug(f"Detected center: (x={x}, y={y}), area={S}")
+
+            overlay = ball.draw_detection_overlay(
+                original_img=img, red_mask=clean, center_x=x, center_y=y
+            )
+            cv2.imshow("Red Ball Detection", overlay)
+
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+
+    except KeyboardInterrupt:
+        print("Stopping...")
+
+    finally:
+        cv2.destroyAllWindows()
