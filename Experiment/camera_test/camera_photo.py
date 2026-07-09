@@ -2,10 +2,8 @@
 ラズパイのカメラモジュールで写真が撮れることを確認
 """
 
-import math
 import time
 from pathlib import Path
-import datetime
 from dataclasses import dataclass
 from typing import List, Tuple
 import numpy as np
