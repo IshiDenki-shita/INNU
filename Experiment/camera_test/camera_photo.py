@@ -2,12 +2,10 @@
 ラズパイのカメラモジュールで写真が撮れることを確認
 """
 
-import math
 import time
 from pathlib import Path
-import datetime
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import Tuple
 import numpy as np
 import cv2
 from picamera2 import Picamera2
