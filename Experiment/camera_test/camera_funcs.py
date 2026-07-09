@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class CameraConfig:
     # input/output path
-    PHOTO_PATH: Path = Path("Experiment/camera/photos")
+    PHOTO_PATH: Path = Path("Experiment/camera_test/photos")
     # img property
     QUALITY: int = 95
     WIDTH: int = 640
@@ -62,57 +62,6 @@ def start_camera(cfg: CameraConfig) -> Picamera2:
     return picam2
 
 
-def save_photo(cfg: CameraConfig, img: np.ndarray, photo_name: str):
-    logger.debug(f"save_photo() called: photo_name={photo_name}, shape={img.shape}")
-    save_path = cfg.PHOTO_PATH / photo_name
-
-    is_success = cv2.imwrite(
-        str(save_path), img, [cv2.IMWRITE_JPEG_QUALITY, cfg.QUALITY]
-    )
-    if not is_success:
-        logger.debug(f"save_photo() failed: {save_path}")
-        raise RuntimeError(f"画像を保存できませんでした。file_path {save_path}")
-    logger.debug(f"save_photo() succeeded: {save_path}")
-
-
-def remove_noise(cfg: CameraConfig, img: np.ndarray) -> np.ndarray:
-    logger.debug("remove_noise() called")
-    kernel = np.ones(cfg.MORPH_KERNEL_SHAPE, dtype=np.uint8)
-
-    clean = cv2.morphologyEx(
-        src=img,
-        op=cv2.MORPH_OPEN,
-        kernel=kernel,
-        iterations=cfg.MORPH_ITERATION,
-    )
-    logger.debug("remove_noise() succeeded")
-    return clean
-
-
-def extract_red_hsv(img: np.ndarray) -> np.ndarray:
-    logger.debug("extract_red_hsv() called")
-    img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-
-    # 赤色範囲
-    # 赤はHSV空間で0/180をまたぐので2つ必要
-    lower_red1 = np.array([0, 120, 70])
-    upper_red1 = np.array([10, 255, 255])
-    lower_red2 = np.array([170, 120, 70])
-    upper_red2 = np.array([180, 255, 255])
-
-    # マスク作成
-    mask1 = cv2.inRange(img_hsv, lower_red1, upper_red1)
-    mask2 = cv2.inRange(img_hsv, lower_red2, upper_red2)
-    red_bin = cv2.bitwise_or(src1=mask1, src2=mask2)
-    count_red = cv2.countNonZero(red_bin)
-    logger.debug(f"extract_red_hsv() succeeded: detected red pixels={count_red}")
-
-    return red_bin
-
-
-def extract_red_bgr(img: np.ndarray) -> np.ndarray: ...
-
-
 def stop_camera(picam2: Picamera2):
     logger.debug("stop_camera() called")
     picam2.stop()
@@ -134,7 +83,7 @@ if __name__ == "__main__":
 
     try:
         logger.debug("Capture loop started")
-        while count < 500:
+        while count < 150:
             start_time = time.perf_counter()
             frame = picam2.capture_array()
 
