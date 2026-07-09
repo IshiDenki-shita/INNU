@@ -1,6 +1,6 @@
 opencv-python
 numpy
-matplotlib
-pyserial
-rplidar-roboticia
 # picamera2
+rplidar-roboticia
+pyserial
+matplotlib
