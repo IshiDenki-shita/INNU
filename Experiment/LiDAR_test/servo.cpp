@@ -47,8 +47,8 @@ int main(int argc, char** argv){
      while(ros::ok()){
 
         if (deg_0 > 0.5){
- 	    set_PWM_dutycycle(pi, 20, 0);
-	    set_PWM_dutycycle(pi, 21, 250);
+ 	        set_PWM_dutycycle(pi, 20, 0);
+	        set_PWM_dutycycle(pi, 21, 250);
         }else{
             set_PWM_dutycycle(pi, 20, 250);
             set_PWM_dutycycle(pi, 21, 0);
