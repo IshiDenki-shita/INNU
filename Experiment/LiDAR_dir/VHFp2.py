@@ -11,7 +11,7 @@ purpose_idx: int  # 画像ラズパイから来たボールへの方角
 lock = threading.Lock()  # C++でどう制御するかは未定
 
 
-def dirctionCallback():
+def dirctionCallback() -> None:
     """
     画像ラズパイから目的の方角を受信した時の割り込み
     詳しい実装は未定
@@ -33,20 +33,22 @@ class LidarRouting:
     alpha = 2  # 方角ごとのヒューリスティックの計算で使う係数。具体的な値は実験で求める
     beta = 3
 
-    def scanCallback(self, scan):
+    def scanCallback(self, scan) -> None:
         """
         LiDARからの受信割り込み
         """
         with lock:
             self.real_data = scan
 
-    def calc_invalid_width(self, dist):
+    def calc_invalid_width(self, dist) -> int:
         """
         壁が近い点からどの範囲に衝突危険性があるか計算
         """
-        return np.arcsin(self.RADIUS_OF_MYSELF / dist)
+        invalid_theta = np.arcsin(self.RADIUS_OF_MYSELF / dist)
+        invalid_width = MAX_DATA_SIZE * invalid_theta / np.pi / 2
+        return int(invalid_width)
 
-    def calc_direction_score(self, dist, idx):
+    def calc_direction_score(self, dist, idx) -> float:
         """
         方角ごとの経路としての妥当さを計算。
         壁から遠い(distが大きい) なら高スコア
@@ -57,7 +59,10 @@ class LidarRouting:
         delta_idx = min(temp_idx - idx, MAX_DATA_SIZE - temp_idx + idx)
         return np.pow(np.e, dist * self.alpha) / (delta_idx * self.beta)
 
-    def calc_route(self):
+    def calc_route(self) -> float:
+        """
+        進行方向として最も妥当な方角を計算
+        """
         with lock:
             temp_data = self.real_data  # データを取り出してから計算開始
 
