@@ -1,7 +1,6 @@
 
 #include <ros/ros.h>
 #include <cmath>
-#include <mutex>
 #include <vector>
 #include <algorithm>
 
@@ -11,21 +10,18 @@
 
 constexpr int MAX_DATA_SIZE = 8000;  // ROSのLiDAR点群バッファの長さ
 
-std::mutex g_lock;
-int purpose_idx = 0;           // 画像ラズパイから来たボールへの方角
+int purpose_idx = 0;           // 画像ラズパイから来たボールへの方角（インデックス）
 
 
 void directionCallback(const std_msgs::Float32::ConstPtr& msg)
 {
     // 詳しい実装は未定。ここでは受信したthetaをインデックスに変換して保持するのみ
-    std::lock_guard<std::mutex> guard(g_lock);
-
     float purpose_theta = msg->data;
     purpose_idx = static_cast<int>(
         static_cast<float>(MAX_DATA_SIZE) * (purpose_theta / M_PI) / 2.0f);
 }
 
-
+// ---- 経路計算の設定（MotorConfigに相当。実験で決める係数のみ持つ） ----
 struct LidarRoutingConfig
 {
     float RADIUS_OF_MYSELF = 1.0f;      // ロボット自身の半径
@@ -47,8 +43,6 @@ public:
     // LiDARからの受信割り込み（メンバ関数コールバック）
     void scanCallback(const sensor_msgs::LaserScan::ConstPtr& scan)
     {
-        std::lock_guard<std::mutex> guard(g_lock);
-
         int n = std::min(static_cast<int>(scan->ranges.size()), MAX_DATA_SIZE);
         for (int i = 0; i < n; ++i)
         {
@@ -69,11 +63,7 @@ public:
     // 方角ごとの経路としての妥当さを計算（壁から遠いほど高スコア）
     float calc_direction_score(float dist, int idx) const
     {
-        int temp_idx;
-        {
-            std::lock_guard<std::mutex> guard(g_lock);
-            temp_idx = purpose_idx;
-        }
+        int temp_idx = purpose_idx;
 
         int raw_delta = std::abs(temp_idx - idx);
         int delta_idx = std::min(raw_delta, MAX_DATA_SIZE - raw_delta);
@@ -85,10 +75,7 @@ public:
     // 進行方向として最も妥当な方角を計算
     float calc_route()
     {
-        {
-            std::lock_guard<std::mutex> guard(g_lock);
-            temp_data_ = real_data_;  // データを取り出してから計算開始
-        }
+        temp_data_ = real_data_;  // データを取り出してから計算開始
 
         std::vector<int> valid_data(MAX_DATA_SIZE, 1);
 
