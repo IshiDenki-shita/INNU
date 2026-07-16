@@ -9,14 +9,14 @@ struct MotorConfig {
     int pwm_freq = 3000;  // PWM周波数
 
     // モーターのピン配置
-    uint8_t MA_1 = 20;
-    uint8_t MA_2 = 21;
-    uint8_t MB_1 = ;
-    uint8_t MB_2 = ;
-    uint8_t MC_1 = ;
-    uint8_t MC_2 = ;
-    uint8_t MD_1 = ;
-    uint8_t MD_2 = ;
+    uint8_t MA_1 = 4;
+    uint8_t MA_2 = 10;
+    uint8_t MB_1 = 12;
+    uint8_t MB_2 = 18;
+    uint8_t MC_1 = 13;
+    uint8_t MC_2 = 19;
+    uint8_t MD_1 = 20;
+    uint8_t MD_2 = 21;
 };
 
 class MotorSpinner {
@@ -82,7 +82,7 @@ int main(int argc, char** argv) {
     MotorSpinner motors(motor_cfg, pi);
     motors.start();
 
-    motors.DutyUpdate(motor_cfg.max_duty);
+    motors.DutyUpdate(100);
 
     ros::Rate rate(50);
     while (ros::ok()) {
