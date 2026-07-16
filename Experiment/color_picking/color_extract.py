@@ -20,7 +20,7 @@ import numpy as np
 @dataclass(frozen=True)
 class ExtractConfig:
     # input path（color_capture.py の出力と合わせる）
-    PHOTO_PATH: Path = Path("Experiment/color_picking/photos")
+    PHOTO_PATH: Path = Path("Experiment/photos/caps")
     PHOTO_NAME: str = "capture.jpg"
     # output path
     SAMPLES_PATH: Path = Path("Experiment/color_picking/samples")
