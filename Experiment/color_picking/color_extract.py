@@ -1,66 +1,34 @@
 """
-カメラの色認識（赤色検出）のHSV閾値をキャリブレーションするコード
+色認識キャリブレーション用: 保存済み画像から赤色をピックし、HSV範囲を計算するコード
 
-1. ラズベリーパイのカメラで写真を撮る
+1. color_capture.py で撮影した画像を読み込む
 2. 表示された画像上で赤い部分をマウスクリックでマーク
 3. クリックしたピクセルのBGR/HSV値を保存
 4. 赤色のHSV範囲を計算し直す
+
+picamera2 に依存しないため Mac 上で実行できる。
 """
 
-import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
 
 import cv2
 import numpy as np
-from picamera2 import Picamera2
 
 
 @dataclass(frozen=True)
-class ColorCalibrationConfig:
-    # input/output path
+class ExtractConfig:
+    # input path（color_capture.py の出力と合わせる）
     PHOTO_PATH: Path = Path("Experiment/color_picking/photos")
     PHOTO_NAME: str = "capture.jpg"
+    # output path
     SAMPLES_PATH: Path = Path("Experiment/color_picking/samples")
     SAMPLES_NAME: str = "red_samples.npz"
-    # img property
-    WIDTH: int = 640
-    HEIGHT: int = 480
-    # warm up
-    WARM_UP_SEC: float = 2.0
     # HSV範囲計算時のマージン
     HUE_MARGIN: int = 10
     SAT_MARGIN: int = 40
     VAL_MARGIN: int = 40
-
-
-class CameraCapture:
-    def __init__(self, config: ColorCalibrationConfig):
-        self.cfg = config
-        self.cfg.PHOTO_PATH.mkdir(parents=True, exist_ok=True)
-
-    def capture_photo(self) -> np.ndarray:
-        picam2 = Picamera2()
-
-        config = picam2.create_still_configuration(
-            main={"size": (self.cfg.WIDTH, self.cfg.HEIGHT)}
-        )
-        picam2.configure(config)
-        picam2.start()
-
-        time.sleep(self.cfg.WARM_UP_SEC)  # 露出・ホワイトバランス安定待ち
-
-        image_rgb = picam2.capture_array()
-        picam2.stop()
-
-        image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR)
-
-        save_path = self.cfg.PHOTO_PATH / self.cfg.PHOTO_NAME
-        cv2.imwrite(str(save_path), image_bgr)
-        print(f"保存しました: {save_path}")
-
-        return image_bgr
 
 
 class PixelPicker:
@@ -68,7 +36,7 @@ class PixelPicker:
     画像を表示し、クリックされたピクセルのBGR/HSV値を収集する
     """
 
-    def __init__(self, config: ColorCalibrationConfig):
+    def __init__(self, config: ExtractConfig):
         self.cfg = config
         self.cfg.SAMPLES_PATH.mkdir(parents=True, exist_ok=True)
 
@@ -77,6 +45,15 @@ class PixelPicker:
         self.image_hsv: Optional[np.ndarray] = None
         self.display: Optional[np.ndarray] = None
         self.window_name = "赤い部分をクリック（終了は q）"
+
+    def load_photo(self) -> np.ndarray:
+        photo_path = self.cfg.PHOTO_PATH / self.cfg.PHOTO_NAME
+        image_bgr = cv2.imread(str(photo_path))
+
+        if image_bgr is None:
+            raise RuntimeError(f"画像を読み込めませんでした: {photo_path}")
+
+        return image_bgr
 
     def _on_mouse(self, event, x, y, flags, param):
         if event != cv2.EVENT_LBUTTONDOWN:
@@ -133,7 +110,7 @@ class RedRangeCalculator:
     収集したサンプルから赤色のHSV範囲（lower_red1/2, upper_red1/2）を計算し直す
     """
 
-    def __init__(self, config: ColorCalibrationConfig):
+    def __init__(self, config: ExtractConfig):
         self.cfg = config
 
     def calc_range(
@@ -182,12 +159,10 @@ class RedRangeCalculator:
 
 
 if __name__ == "__main__":
-    cfg = ColorCalibrationConfig()
-
-    camera = CameraCapture(cfg)
-    photo = camera.capture_photo()
+    cfg = ExtractConfig()
 
     picker = PixelPicker(cfg)
+    photo = picker.load_photo()
     samples_bgr = picker.pick_pixels(photo)
     picker.save_samples(samples_bgr)
 
