@@ -5,7 +5,6 @@ Raspberry pi 4Bで、一秒間に何枚の写真を撮れるか実験
 import math
 import time
 from pathlib import Path
-import datetime
 from dataclasses import dataclass
 from typing import List, Tuple
 import numpy as np
