@@ -17,7 +17,7 @@ from picamera2 import Picamera2
 @dataclass(frozen=True)
 class CaptureConfig:
     # input/output path
-    PHOTO_PATH: Path = Path("Experiment/color_picking/photos")
+    PHOTO_PATH: Path = Path("home/ubuntu/Desktop/INNU/Experiment/color_picking/photos")
     PHOTO_NAME: str = "capture.jpg"
     # img property
     WIDTH: int = 640
