@@ -251,7 +251,7 @@ if __name__ == "__main__":
             logger.debug(f"Detected center: (x={x}, y={y}), area={S}")
 
             overlay = ball.draw_detection_overlay(
-                original_img=img, red_mask=clean, center_x=x, center_y=y
+                original_img=clean, red_mask=clean, center_x=x, center_y=y
             )
             cv2.imshow("Red Ball Detection", overlay)
 
