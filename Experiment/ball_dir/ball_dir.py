@@ -37,9 +37,11 @@ class BallDetectionConfig:
     MIN_CIRCLE_SIZE: int = 100
     THRESH_CIRCULARITY: float = 0.8
     # calc ball position
-    theta_board = np.array([make pixel-theta matching when the camera condition confirmed])
-    distance_correction_val: np.float16 = this val will be decided by experiment
-
+    theta_board: np.ndarray = np.array([])
+    distance_correction_val: np.float16 = np.float16(1.0)
+    # detection hysterises
+    hysterises_length: int = 10  # ボールの座標の履歴の長さ
+    THRESH_INTENCITY: float = 30.0  # 履歴の座標の分散の閾値
 
 
 class Utility:
@@ -112,8 +114,27 @@ class CameraPublic:
 
 
 class BallDetection:
+
     def __init__(self, config: BallDetectionConfig) -> None:
         self.cfg = config
+
+        # detection hysterises
+        self.x_history = np.asarray([0] * self.cfg.hysterises_length, dtype=np.float32)
+        self.y_history = np.asarray([0] * self.cfg.hysterises_length, dtype=np.float32)
+        self.history_idx = 0
+
+    def run(self, red):
+
+        x, y, S = self.find_circle_contour(red=red)
+        logger.debug(f"Detected center: (x={x}, y={y}), area={S}")
+
+        x, y = self.calc_crood_with_hysteresis(x, y)
+
+        if (x, y) == (-1, -1):
+            return 0, -1  # ロスト時のtheta, distance
+
+        crood = self.calc_ball_position((x, y), S)
+        return crood
 
     def find_circle_contour(self, red: np.ndarray) -> Tuple[int, int, float]:
 
@@ -153,16 +174,42 @@ class BallDetection:
 
         return (center_x, center_y, best_area)
 
-    def calc_ball_position(self, crood: Tuple[int, int], S: float) -> Tuple[float, float]:
+    def calc_crood_with_hysteresis(self, x, y):
+        """
+        直近10フレームのボールの座標の重心を目標座標として決定
+        """
+        idx = self.history_idx % self.cfg.hysterises_length
+
+        self.x_history[idx] = x
+        self.y_history[idx] = y
+        self.history_idx += 1
+
+        x_ave = np.mean(self.x_history)
+        y_ave = np.mean(self.y_history)
+
+        # 履歴点が1つの中心にどれくらい集まっているかを、平均二乗距離で計算
+        intensity = np.mean(
+            (self.x_history - x_ave) ** 2 + (self.y_history - y_ave) ** 2
+        )
+
+        if intensity > self.cfg.THRESH_INTENCITY:
+            return (-1, -1)
+
+        ans = (int(x_ave), int(y_ave))
+
+        return ans
+
+    def calc_ball_position(
+        self, crood: Tuple[int, int], S: float
+    ) -> Tuple[float, float]:
         # direction
         theta_board = self.cfg.theta_board
         theta = theta_board[crood]
 
         # distance
-        distance = np.sqrt(S, dtype='float16') / self.distance_correction_val # meter
+        distance = np.sqrt(S, dtype="float16") / self.distance_correction_val  # meter
 
         return theta, distance
-
 
     def plot_red_detection(
         self,
@@ -262,8 +309,9 @@ if __name__ == "__main__":
             red = cam.extract_red_hsv(img=img)
             clean = cam.remove_noise(red)
 
-            x, y, S = ball.find_circle_contour(red=clean)
-            logger.debug(f"Detected center: (x={x}, y={y}), area={S}")
+            x, y, S = ball.find_circle_contour(clean)
+
+            x, y = ball.calc_crood_with_hysteresis(x, y)
 
             overlay = ball.draw_detection_overlay(
                 original_img=clean, red_mask=clean, center_x=x, center_y=y
@@ -278,6 +326,3 @@ if __name__ == "__main__":
 
     finally:
         cv2.destroyAllWindows()
-
-
-

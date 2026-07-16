@@ -1,5 +1,9 @@
 .DS_Store
 .venv/
+
+__pycache__/
+
 Experiment/ball_detection/sample/
 Experiment/camera_test/photos/
+
 palette.py
