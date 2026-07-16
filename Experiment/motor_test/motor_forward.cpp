@@ -3,7 +3,7 @@
 #include <pigpiod_if2.h>
 #include <cstdint>
 
-/* ---------------- モーター設定 (MotorConfig 相当) ---------------- */
+
 struct MotorConfig {
     int max_duty = 255;   // デューティー比の最大値
     int pwm_freq = 3000;  // PWM周波数
@@ -19,7 +19,6 @@ struct MotorConfig {
     uint8_t MD_2 = ;
 };
 
-/* ---------------- モーター制御クラス (MotorSpinner 相当) ---------------- */
 class MotorSpinner {
 public:
     static const int num_motor = 4;
@@ -43,7 +42,7 @@ public:
     }
 
     // 前進方向のmotor_dutiesを計算する（出力はしない）
-    void DirUpdate(int speed) {
+    void DutyUpdate(int speed) {
         motor_duties[0] = 0;     motor_duties[1] = speed;  // MA_1, MA_2
         motor_duties[2] = 0;     motor_duties[3] = speed;  // MB_1, MB_2
         motor_duties[4] = 0;     motor_duties[5] = speed;  // MC_1, MC_2
@@ -83,7 +82,7 @@ int main(int argc, char** argv) {
     MotorSpinner motors(motor_cfg, pi);
     motors.start();
 
-    motors.DirUpdate(motor_cfg.max_duty);
+    motors.DutyUpdate(motor_cfg.max_duty);
 
     ros::Rate rate(50);
     while (ros::ok()) {
