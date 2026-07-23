@@ -3,9 +3,9 @@
 #include <pigpiod_if2.h>
 #include <cstdint>
 
+int max_duty = 255;   // デューティー比の最大値
 
-struct MotorConfig {
-    int max_duty = 255;   // デューティー比の最大値
+struct MotorConfig {    
     int pwm_freq = 3000;  // PWM周波数
 
     // モーターのピン配置
@@ -43,7 +43,7 @@ public:
 
     // 前進方向のmotor_dutiesを計算する（出力はしない）
     void DutyUpdate(int speed) {
-        motor_duties[0] = 0;     motor_duties[1] = speed;  // MA_1, MA_2
+        motor_duties[0] = 0;     motor_duties[1] = max_duty -  speed;  // MA_1, MA_2
         motor_duties[2] = 0;     motor_duties[3] = speed;  // MB_1, MB_2
         motor_duties[4] = 0;     motor_duties[5] = speed;  // MC_1, MC_2
         motor_duties[6] = 0;     motor_duties[7] = speed;  // MD_1, MD_2
