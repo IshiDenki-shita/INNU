@@ -12,7 +12,8 @@
 
 #include "std_msgs/Float32.h"  // 画像ラズパイからの目的方角。メッセージ型は仮（詳細未定）
 
-float purpose_theta_g = 0.0f;  // ボールへの方角（この方向へ直接メカナムで進む）
+float purpose_theta_g = 0.0f;  // ロボットを進ませる方向
+float ball_dir_theta = 0.052f;
 
 void directionCallback(const std_msgs::Float32::ConstPtr& msg)
 {
@@ -65,6 +66,10 @@ public:
         // 並進成分（move_thetaの方向へ移動。姿勢の向きとは無関係）
         float vx = std::cos(move_theta);
         float vy = std::sin(move_theta);
+
+        // 回転だけ行いたいので並進成分は 0
+        vx = 0.0f;
+        vy = 0.0f;
 
         // 回転成分（ball_thetaを0に近づける比例制御 = 常にボールを向く）
         float w = cfg.heading_kp * ball_theta;
