@@ -1,20 +1,22 @@
+
 #include <ros/ros.h>
 //#include <pigpio.h>
 #include <pigpiod_if2.h>
 #include <cstdint>
 
-int max_duty = 255;   // デューティー比の最大値
+int motor_speed = 150;
+int max_duty =  255;
 
-struct MotorConfig {    
+struct MotorConfig {
     int pwm_freq = 3000;  // PWM周波数
 
     // モーターのピン配置
-    uint8_t MA_1 = 4;
-    uint8_t MA_2 = 10;
-    uint8_t MB_1 = 12;
-    uint8_t MB_2 = 18;
-    uint8_t MC_1 = 13;
-    uint8_t MC_2 = 19;
+    uint8_t MA_1 = 10;
+    uint8_t MA_2 = 4;
+    uint8_t MB_1 = 18;
+    uint8_t MB_2 = 12;
+    uint8_t MC_1 = 19;
+    uint8_t MC_2 = 13;
     uint8_t MD_1 = 20;
     uint8_t MD_2 = 21;
 };
@@ -39,11 +41,12 @@ public:
         set_PWM_frequency(pi, cfg.MC_2, cfg.pwm_freq);
         set_PWM_frequency(pi, cfg.MD_1, cfg.pwm_freq);
         set_PWM_frequency(pi, cfg.MD_2, cfg.pwm_freq);
+	set_PWM_frequency(pi, 27, cfg.pwm_freq);
     }
 
     // 前進方向のmotor_dutiesを計算する（出力はしない）
     void DutyUpdate(int speed) {
-        motor_duties[0] = 0;     motor_duties[1] = max_duty -  speed;  // MA_1, MA_2
+        motor_duties[0] = 0;     motor_duties[1] = speed;  // MA_1, MA_2
         motor_duties[2] = 0;     motor_duties[3] = speed;  // MB_1, MB_2
         motor_duties[4] = 0;     motor_duties[5] = speed;  // MC_1, MC_2
         motor_duties[6] = 0;     motor_duties[7] = speed;  // MD_1, MD_2
@@ -59,6 +62,7 @@ public:
         set_PWM_dutycycle(pi, cfg.MC_2, motor_duties[5]);
         set_PWM_dutycycle(pi, cfg.MD_1, motor_duties[6]);
         set_PWM_dutycycle(pi, cfg.MD_2, motor_duties[7]);
+	set_PWM_dutycycle(pi, 27, 100);
     }
 
     // モーターとの接続解除など
@@ -82,11 +86,20 @@ int main(int argc, char** argv) {
     MotorSpinner motors(motor_cfg, pi);
     motors.start();
 
-    motors.DutyUpdate(100);
+    motors.DutyUpdate(motor_speed);
 
-    ros::Rate rate(50);
+    ros::Rate rate(110);
     while (ros::ok()) {
         motors.PWMshootor();
+
+	printf("GPIO4 duty=%d freq=%d\n",
+       get_PWM_dutycycle(pi, 4),
+       get_PWM_frequency(pi, 4));
+
+printf("GPIO10 duty=%d freq=%d\n",
+       get_PWM_dutycycle(pi, 10),
+       get_PWM_frequency(pi, 10));
+
 
         ros::spinOnce();
         rate.sleep();
