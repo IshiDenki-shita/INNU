@@ -1,8 +1,5 @@
 /*
-目標の方角へ移動するためのduty比を計算するコード
-姿勢を常にボールへ向ける
-
-画像ラズパイからUARTで受信した(angle, distance, detected)をもとにDutyUpdateを呼ぶ。
+UARTがC++のコードに組み込まれるイメージのコード
 */
 
 #include <ros/ros.h>
