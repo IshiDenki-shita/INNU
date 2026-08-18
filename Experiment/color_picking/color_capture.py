@@ -6,10 +6,7 @@
 """
 
 import time
-from dataclasses import dataclass
 from pathlib import Path
-import cv2
-import numpy as np
 
 from Experiment.mods.camera_public import CameraPublic
 
@@ -19,6 +16,7 @@ if __name__ == "__main__":
 
     cam = CameraPublic(STORAGE_PATH=save_path)
 
+    cam.start_camera()
     print(f"カメラ起動。{WARM_UP_SEC}秒後に撮影します...")
     time.sleep(WARM_UP_SEC)
 

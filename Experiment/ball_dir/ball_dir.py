@@ -1,6 +1,5 @@
 import sys
 import logging
-from pathlib import Path
 from typing import Tuple
 from dataclasses import dataclass
 import numpy as np
@@ -227,7 +226,7 @@ if __name__ == "__main__":
     try:
         while True:
             img = cam.get_frame()
-            red = cam.extract_red_hsv(img=img)
+            red = cam.extract_red_bgr(img=img)
             clean = cam.remove_noise(red)
 
             x, y, S = ball.find_circle_contour(clean)

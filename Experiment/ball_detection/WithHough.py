@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from typing import List, Tuple, Union
 import numpy as np
 import cv2
-from picamera2 import Picamera2
 
 from Experiment.mods.camera_public import CameraPublic
 
@@ -111,7 +110,7 @@ if __name__ == "__main__":
             frame = cam.get_frame()
 
             # --- ここに処理を書く（例：何もしない） ---
-            red = cam.extract_red_hsv(img=frame)
+            red = cam.extract_red_bgr(img=frame)
             clean = cam.remove_noise(red)
 
             circles = ball.find_circle_hough(red=red)

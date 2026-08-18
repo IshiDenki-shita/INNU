@@ -5,8 +5,6 @@
 import sys
 import time
 from pathlib import Path
-from dataclasses import dataclass
-from typing import Tuple
 from picamera2 import Picamera2
 import logging
 
