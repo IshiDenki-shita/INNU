@@ -4,25 +4,12 @@ Raspberry pi 4Bで、一秒間に何枚の写真を撮れるか実験
 
 import math
 import time
-from pathlib import Path
 from dataclasses import dataclass
 from typing import List, Tuple
 import numpy as np
 import cv2
-from picamera import PiCamera
 
-
-@dataclass
-class CameraConfig:
-    # input/output path
-    PHOTO_PATH: Path = Path("Experiment/camera/photos")
-    # img property
-    QUALITY: int = 95
-    WIDTH: int = 640
-    HEIGHT: int = 480
-    # FPS
-    TARGET_FPS: int = 10
-    FRAME_INTERVAL: float = 1.0 / TARGET_FPS
+from Experiment.mods.camera_public import CameraPublic
 
 
 @dataclass
@@ -38,41 +25,6 @@ class BallDetectionConfig:
 
 class Utility:
     def __init__(self) -> None: ...
-
-
-class CameraPublic:
-    def __init__(self, config: CameraConfig):
-        self.cfg = config
-
-    def save_photo(self, img: np.ndarray, photo_name: str):
-        save_path = self.cfg.PHOTO_PATH / photo_name
-
-        is_success = cv2.imwrite(
-            str(save_path), img, [cv2.IMWRITE_JPEG_QUALITY, self.cfg.QUALITY]
-        )
-        if not is_success:
-            raise RuntimeError(f"画像を保存できませんでした。file_path {save_path}")
-
-    def remove_noise(self, img: np.ndarray): ...
-
-    def extract_red_hsv(self, img: np.ndarray) -> np.ndarray:
-        img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-
-        # 赤色範囲
-        # 赤はHSV空間で0/180をまたぐので2つ必要
-        lower_red1 = np.array([0, 120, 70])
-        upper_red1 = np.array([10, 255, 255])
-        lower_red2 = np.array([170, 120, 70])
-        upper_red2 = np.array([180, 255, 255])
-
-        # マスク作成
-        mask1 = cv2.inRange(img_hsv, lower_red1, upper_red1)
-        mask2 = cv2.inRange(img_hsv, lower_red2, upper_red2)
-        img_red = cv2.bitwise_or(src1=mask1, src2=mask2)
-
-        return img_red
-
-    def extract_red_bgr(self, img: np.ndarray) -> np.ndarray: ...
 
 
 class BallDetection:
@@ -108,14 +60,21 @@ class BallDetection:
 
 
 if __name__ == "__main__":
-    cam_cfg = CameraConfig()
-    cam = CameraPublic(config=cam_cfg)
+    QUALITY: int = 95
+    WIDTH: int = 640
+    HEIGHT: int = 480
+    MORPH_KERNEL_SHAPE = (5, 5)
+    MORPH_ITERATION: int = 1
+    TARGET_FPS: int = 30
+    FRAME_INTERVAL = 1.0 / TARGET_FPS
+
+    cam = CameraPublic()
     ball_cfg = BallDetectionConfig()
     ball = BallDetection(config=ball_cfg)
 
     cap = cv2.VideoCapture(0)  # Camera Module v2
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, cam_cfg.WIDTH)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, cam_cfg.HEIGHT)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
 
     # ウォームアップ
     time.sleep(1)
@@ -138,7 +97,7 @@ if __name__ == "__main__":
         # ------------------------------------
 
         elapsed = time.time() - start_time
-        sleep_time = cam_cfg.FRAME_INTERVAL - elapsed
+        sleep_time = FRAME_INTERVAL - elapsed
 
         if sleep_time > 0:
             time.sleep(sleep_time)
@@ -149,5 +108,5 @@ if __name__ == "__main__":
         prev_time = now
         fps_history.append(actual_fps)
 
-    print(f"Target FPS: {cam_cfg.TARGET_FPS}\nActual FPS: {fps_history:.2f}")
+    print(f"Target FPS: {TARGET_FPS}\nActual FPS: {fps_history:.2f}")
     print(f"mean: {sum(fps_history) / len(fps_history)}")

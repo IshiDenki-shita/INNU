@@ -10,6 +10,8 @@ from typing import Tuple
 from picamera2 import Picamera2
 import logging
 
+from Experiment.mods.camera_public import CameraPublic
+
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -18,38 +20,22 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
-class CameraConfig:
-    # input/output path
-    PHOTO_PATH: Path = Path("Experiment/camera_test/photos")
-    # img property
-    QUALITY: int = 95
-    WIDTH: int = 640
-    HEIGHT: int = 480
-    # noise remove
-    MORPH_KERNEL_SHAPE: Tuple = (5, 5)
-    MORPH_ITERATION: int = 1
-    # FPS
-    TARGET_FPS: int = 30
-    FRAME_INTERVAL: float = 1.0 / TARGET_FPS
-
-
-def prepare_photo_dir(cfg: CameraConfig):
+def prepare_photo_dir(photo_path):
     logger.debug("prepare_photo_dir() called")
-    cfg.PHOTO_PATH.mkdir(parents=True, exist_ok=True)
-    logger.debug(f"prepare_photo_dir() succeeded: {cfg.PHOTO_PATH.resolve()}")
+    photo_path.mkdir(parents=True, exist_ok=True)
+    logger.debug(f"prepare_photo_dir() succeeded: {photo_path.resolve()}")
 
 
-def start_camera(cfg: CameraConfig) -> Picamera2:
+def start_camera(WIDTH, HEIGHT, TARGET_FPS) -> Picamera2:
     logger.debug("start_camera() called")
     picam2 = Picamera2()
 
     config = picam2.create_preview_configuration(
-        main={"size": (cfg.WIDTH, cfg.HEIGHT), "format": "BGR888"},
+        main={"size": (WIDTH, HEIGHT), "format": "BGR888"},
         controls={
             "FrameDurationLimits": (
-                int(1000000 / cfg.TARGET_FPS),
-                int(1000000 / cfg.TARGET_FPS),
+                int(1000000 / TARGET_FPS),
+                int(1000000 / TARGET_FPS),
             )
         },
     )
@@ -67,11 +53,14 @@ def stop_camera(picam2: Picamera2):
 
 
 if __name__ == "__main__":
-    logger.debug("Program started")
-    cam_cfg = CameraConfig()
-    prepare_photo_dir(cam_cfg)
+    TARGET_FPS: int = 30
+    PHOTO_PATH = Path("Experiment/camera/photos")
 
-    picam2 = start_camera(cam_cfg)
+    logger.debug("Program started")
+    cam = CameraPublic(SAMPLE_PATH=PHOTO_PATH, QUALITY=95, TARGET_FPS=30)
+    prepare_photo_dir(PHOTO_PATH)
+
+    picam2 = start_camera(WIDTH=640, HEIGHT=480, TARGET_FPS=TARGET_FPS)
     logger.debug("Waiting for camera warm-up")
     time.sleep(1)  # warm up
 
@@ -95,7 +84,7 @@ if __name__ == "__main__":
             count += 1
         logger.debug(f"Capture loop finished: total frames={count}")
 
-        print(f"Target FPS: {cam_cfg.TARGET_FPS}\nActual FPS: {fps_history}")
+        print(f"Target FPS: {TARGET_FPS}\nActual FPS: {fps_history}")
         print(f"FPS mean: {sum(fps_history) / len(fps_history)}")
 
     finally:
