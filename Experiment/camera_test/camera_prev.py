@@ -1,3 +1,7 @@
+"""
+カメラモジュールの機能として写真を撮れるかテストするコード
+"""
+
 #!/usr/bin/env python3
 
 import time
