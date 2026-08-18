@@ -15,17 +15,14 @@ from Experiment.mods.camera_public import CameraPublic
 
 if __name__ == "__main__":
     WARM_UP_SEC: float = 5.0
+    save_path = Path("home/ubuntu/Desktop/INNU/Experiment/color_picking/photos")
 
-    cam = CameraPublic(
-        STORAGE_PATH=Path("home/ubuntu/Desktop/INNU/Experiment/color_picking/photos")
-    )
+    cam = CameraPublic(STORAGE_PATH=save_path)
 
     print(f"カメラ起動。{WARM_UP_SEC}秒後に撮影します...")
     time.sleep(WARM_UP_SEC)
 
     img = cam.get_frame()
-    image_bgr = cv2.cvtColor(image, cv2.COLOR_HSV2BGR)
 
-    save_path = self.cfg.PHOTO_PATH / self.cfg.PHOTO_NAME
-    cv2.imwrite(str(save_path), image_bgr)
+    cam.save_frame(img=img)
     print(f"保存しました: {save_path}")
