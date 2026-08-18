@@ -88,3 +88,33 @@ class CameraPublic:
     def extract_red_bgr(self, img: np.ndarray) -> np.ndarray:
         red_bin = cv2.inRange(img, self.LOWER_BGR, self.UPPER_BGR)
         return red_bin
+
+    def show_live(self, show_mask: bool = True) -> None:
+        """
+        撮影した映像をリアルタイムでデスクトップに表示する。
+        赤抽出結果を目視確認するため、show_mask=Trueなら
+        元映像とマスク適用結果を横に並べて表示する。
+        'q'キーで終了。
+        """
+        if self.cam is None:
+            raise RuntimeError("カメラが起動されていません")
+
+        try:
+            while True:
+                frame = self.get_frame()
+
+                if show_mask:
+                    red = self.extract_red_bgr(frame)
+                    clean = self.remove_noise(red)
+                    mask_bgr = cv2.cvtColor(clean, cv2.COLOR_GRAY2BGR)
+                    display = cv2.hconcat([frame, mask_bgr])
+                else:
+                    display = frame
+
+                cv2.imshow("CameraPublic.show_live", display)
+
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
+
+        finally:
+            cv2.destroyAllWindows()
