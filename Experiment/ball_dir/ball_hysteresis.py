@@ -1,3 +1,5 @@
+# 座標履歴を用いて赤いボールの検出を安定化する実験コードです。
+# 検出位置から方向・距離を算出し、結果を画像上に表示します。
 import sys
 import logging
 from typing import Tuple

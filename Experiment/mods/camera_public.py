@@ -1,3 +1,5 @@
+# Picamera2の撮影と画像処理を共通化するCameraPublicクラスを定義します。
+# フレーム取得、保存、ノイズ除去、赤色抽出、ライブ表示を提供します。
 import time
 from datetime import datetime
 from pathlib import Path

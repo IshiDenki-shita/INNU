@@ -1,3 +1,5 @@
+# 赤色領域からボールを検出し、方向と距離を推定する処理です。
+# 座標履歴による安定化と検出結果の可視化を行います。
 import sys
 import logging
 from typing import Tuple

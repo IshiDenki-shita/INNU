@@ -1,3 +1,5 @@
+# 輪郭の円形度を使って赤いボールを検出する実験コードです。
+# 検出位置の計算と、画像上への結果の描画・表示を行います。
 import sys
 import logging
 from pathlib import Path

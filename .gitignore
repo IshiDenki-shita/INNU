@@ -1,3 +1,5 @@
+# Ignore local environments, generated data, and editor or operating-system files.
+# Keep these machine-specific and temporary files out of version control.
 .DS_Store
 .venv/
 

@@ -1,3 +1,5 @@
+# ハフ変換を使って赤いボールの円を検出する実験コードです。
+# 検出した円の位置を計算し、画像上に結果を描画・表示します。
 import sys
 import time
 import logging

@@ -1,3 +1,5 @@
+# INNUプロジェクトで使用するPythonパッケージを列挙します。
+# 実行環境に応じて、必要な依存ライブラリをここからインストールします。
 opencv-python
 numpy
 # picamera2
