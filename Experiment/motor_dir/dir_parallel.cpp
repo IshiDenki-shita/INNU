@@ -1,6 +1,6 @@
-"""
+/*
 平行移動で目標方向に進むコード
-"""
+*/
 
 #include <ros/ros.h>
 //#include <pigpio.h>
