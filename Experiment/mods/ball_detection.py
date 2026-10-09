@@ -20,7 +20,10 @@ class BallDetection:
         THRESH_CIRCULARITY: float = 0.8,
         # calc ball position
         # ↓画像上のxy座標とロボットからみたthetaの変換表
-        theta_board: np.ndarray = np.array([]),
+        theta_board: np.ndarray = np.tile(
+            np.linspace(start=np.pi * 2 / 3, stop=np.pi / 3, num=640),
+            reps=(640, 480),
+        ),
         # ↓画像上の面積とロボットからの距離の較正値
         distance_correction_val: np.float16 = np.float16(1.0),
         # detection hysterises

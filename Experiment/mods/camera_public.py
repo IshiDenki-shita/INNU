@@ -59,6 +59,21 @@ class CameraPublic:
         self.cam.start()
         time.sleep(2)
 
+    def stop_camera(self) -> None:
+        """
+        カメラを停止してリソースを解放する。
+        start_camera()と対になる関数。未起動・二重呼び出しでも安全。
+        """
+        if self.cam is None:
+            return
+
+        try:
+            self.cam.stop()
+        finally:
+            # stop()で例外が出ても、必ずデバイスを解放する
+            self.cam.close()
+            self.cam = None
+
     def get_frame(self) -> np.ndarray:
         return self.cam.capture_array()
 
