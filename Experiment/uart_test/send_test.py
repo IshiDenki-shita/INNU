@@ -17,33 +17,17 @@ C++側のreceive_test.cppと組み合わせて、
 """
 
 import argparse
-import logging
 import math
 import struct
-import sys
 import time
-from dataclasses import dataclass
 from typing import Optional
 
 import serial
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    stream=sys.stdout,
-)
-logger = logging.getLogger(__name__)
+from Experiment.mods.logger import logger
 
 # float32に丸めたπ。受信側もfloat32同士で範囲判定するので、送信側も揃えて判定する。
 PI_F32 = struct.unpack("<f", struct.pack("<f", math.pi))[0]
-
-
-@dataclass(frozen=True)
-class UARTConfig:
-    port: str = "/dev/serial0"  # LiDARラズパイへのUART送信ポート
-    baudrate: int = 9600
-    write_timeout: float = 1.0  # 秒
-    max_send_hz: float = 30.0  # 仕様: 最大送信頻度
 
 
 class UARTSender:
@@ -58,11 +42,22 @@ class UARTSender:
     FLAG_DETECTED = 0x01
     FRAME_SIZE = 15
 
-    def __init__(self, config: UARTConfig) -> None:
-        self.cfg = config
+    def __init__(
+        self,
+        port: str = "/dev/serial0",  # LiDARラズパイへのUART送信ポート
+        baudrate: int = 9600,
+        write_timeout: float = 1.0,
+        max_send_hz: float = 30.0,
+    ) -> None:
+
         self.ser: Optional[serial.Serial] = None
         self.sequence = 0  # 次に送るsequence番号
         self._last_send_time: Optional[float] = None
+
+        self.port: str = port
+        self.baudrate: int = baudrate
+        self.write_timeout: float = write_timeout
+        self.max_send_hz: float = max_send_hz
 
         # CRC実装の自己確認(CRC-16/CCITT-FALSEの標準チェック値)
         if self.crc16(b"123456789") != 0x29B1:
@@ -70,17 +65,17 @@ class UARTSender:
 
     def start(self) -> None:
         self.ser = serial.Serial(
-            port=self.cfg.port,
-            baudrate=self.cfg.baudrate,
+            port=self.port,
+            baudrate=self.baudrate,
             bytesize=serial.EIGHTBITS,
             parity=serial.PARITY_NONE,
             stopbits=serial.STOPBITS_ONE,
             xonxoff=False,
             rtscts=False,
             dsrdtr=False,
-            write_timeout=self.cfg.write_timeout,
+            write_timeout=self.write_timeout,
         )
-        logger.debug(f"UART opened: {self.cfg.port} @ {self.cfg.baudrate}bps 8N1")
+        logger.debug(f"UART opened: {self.port} @ {self.baudrate}bps 8N1")
 
     def send(self, theta_rad: float, distance_m: float, detected: bool) -> bool:
         """
@@ -94,7 +89,7 @@ class UARTSender:
         now = time.monotonic()
         if (
             self._last_send_time is not None
-            and now - self._last_send_time < 1.0 / self.cfg.max_send_hz
+            and now - self._last_send_time < 1.0 / self.max_send_hz
         ):
             return False
 
@@ -192,19 +187,19 @@ def send_fault_frame(uart: UARTSender, kind: str, theta: float, dist: float) -> 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="UART送信テスト")
-    parser.add_argument("port", nargs="?", default=UARTConfig.port)
+    parser.add_argument("port", nargs="?", default=uart.port)
     parser.add_argument("--hz", type=float, default=10.0, help="送信頻度(最大30)")
     parser.add_argument("--fault", action="store_true", help="不正フレームも送る")
     args = parser.parse_args()
-    if not (0.0 < args.hz <= UARTConfig.max_send_hz):
-        parser.error(f"--hzは0より大きく{UARTConfig.max_send_hz}以下にしてください")
+    if not (0.0 < args.hz <= uart.max_send_hz):
+        parser.error(f"--hzは0より大きく{uart.max_send_hz}以下にしてください")
     return args
 
 
 if __name__ == "__main__":
     args = parse_args()
 
-    uart = UARTSender(config=UARTConfig(port=args.port))
+    uart = UARTSender(port=args.port)
     uart.start()
     logger.debug("UART test sender started")
 
