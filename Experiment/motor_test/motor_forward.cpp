@@ -1,3 +1,7 @@
+/*
+モーターを前進させて動くことを確認するコード
+*/
+
 
 #include <ros/ros.h>
 //#include <pigpio.h>
