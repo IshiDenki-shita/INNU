@@ -20,12 +20,10 @@ if __name__ == "__main__":
             red = cam.extract_red_bgr(img=img)
             clean = cam.remove_noise(red)
 
-            x, y, S = ball.find_circle_contour(clean)
-
-            x, y = ball.calc_crood_with_hysteresis(x, y)
+            x, y = ball.run(red=red, is_xy=True)
 
             overlay = ball.draw_detection_overlay(
-                original_img=clean, red_mask=clean, center_x=x, center_y=y
+                original_img=clean, red_mask=clean, center_x=int(x), center_y=int(y)
             )
             cv2.imshow("Red Ball Detection", overlay)
 

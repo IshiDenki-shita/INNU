@@ -14,31 +14,33 @@ class BallDetection:
     def __init__(
         self,
         # find contour
+        # ↓ボールと認識する最小の円の面積
         MIN_CIRCLE_SIZE: int = 100,
+        # ↓ボールと認識する最小の円形度
         THRESH_CIRCULARITY: float = 0.8,
         # calc ball position
+        # ↓画像上のxy座標とロボットからみたthetaの変換表
         theta_board: np.ndarray = np.array([]),
+        # ↓画像上の面積とロボットからの距離の較正値
         distance_correction_val: np.float16 = np.float16(1.0),
         # detection hysterises
-        hysterises_length: int = 10,  # ボールの座標の履歴の長さ
-        THRESH_INTENCITY: float = 30.0,  # 履歴の座標の分散の閾値
+        hysterises_length: int = 10,  # ←ボールの座標の履歴の長さ
+        THRESH_INTENCITY: float = 30.0,  # ←履歴の座標の分散の閾値
     ) -> None:
 
         self.MIN_CIRCLE_SIZE: int = MIN_CIRCLE_SIZE
         self.THRESH_CIRCULARITY: float = THRESH_CIRCULARITY
-        # calc ball position
         self.theta_board: np.ndarray = theta_board
         self.distance_correction_val: np.float16 = distance_correction_val
-        # detection hysterises
-        self.hysterises_length: int = hysterises_length  # ボールの座標の履歴の長さ
-        self.THRESH_INTENCITY: float = THRESH_INTENCITY  # 履歴の座標の分散の閾値
+        self.hysterises_length: int = hysterises_length
+        self.THRESH_INTENCITY: float = THRESH_INTENCITY
 
         # detection hysterises
         self.x_history = np.asarray([0] * self.hysterises_length, dtype=np.float32)
         self.y_history = np.asarray([0] * self.hysterises_length, dtype=np.float32)
         self.history_idx = 0
 
-    def run(self, red):
+    def run(self, red, is_xy=False):
 
         x, y, S = self.find_circle_contour(red=red)
         logger.debug(f"Detected center: (x={x}, y={y}), area={S}")
@@ -48,8 +50,10 @@ class BallDetection:
         if (x, y) == (-1, -1):
             return 0, -1  # ロスト時のtheta, distance
 
-        crood = self.calc_ball_position((x, y), S)
-        return crood
+        if is_xy:
+            return x, y
+        else:
+            return self.calc_ball_position((x, y), S)
 
     def find_circle_contour(self, red: np.ndarray) -> Tuple[int, int, float]:
 
