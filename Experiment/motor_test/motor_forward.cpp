@@ -11,8 +11,8 @@ struct MotorConfig {
     int pwm_freq = 3000;  // PWM周波数
 
     // モーターのピン配置
-    uint8_t MA_1 = 10;
-    uint8_t MA_2 = 4;
+    uint8_t MA_1 = 22;
+    uint8_t MA_2 = 10;
     uint8_t MB_1 = 18;
     uint8_t MB_2 = 12;
     uint8_t MC_1 = 19;
