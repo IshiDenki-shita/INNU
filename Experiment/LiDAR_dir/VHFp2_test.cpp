@@ -1,7 +1,7 @@
-// lidar_motion_node.cpp
-// LiDAR経路計算とメカナムPWM出力を同じROSノードで行う。
-// UARTバイト列の解析は行わず、uart_receiver_nodeがpublishする
-// /ball_target だけを受け取る。
+// VHFp2_test.cpp
+// 元の lidar_motion_node.cpp をベースにしたテスト版。
+// 空間を10方向に分割し、1〜10のスケールで開き具合を評価。
+// 結果を1回の検出あたり1ラインでターミナルに出力します。
 
 #include <ros/ros.h>
 #include <sensor_msgs/LaserScan.h>
@@ -14,6 +14,9 @@
 #include <limits>
 #include <mutex>
 #include <vector>
+#include <iostream>
+#include <iomanip>
+#include <sstream>
 
 namespace {
 
@@ -45,7 +48,9 @@ bool isValidDistance(double distance) {
 struct RoutingConfig {
     double robot_radius_m = 0.20;
     double safety_margin_m = 0.10;
-    double sector_rad = 5.0 * kPi / 180.0;
+    // テスト用に10方向（36度刻み）に分割
+    int sector_count = 10;
+    double max_eval_dist = 5.0; // 完全に進行可能と見なす最大距離
 
     // LiDARの正面と車体正面のずれ。実機で校正する。
     double lidar_yaw_offset_rad = 0.0;
@@ -64,7 +69,7 @@ struct MotorConfig {
 
     // 実機配線と一致することを要確認。
     std::array<unsigned, 8> pins = {
-        22, 10,   // 前左
+        22, 10,  // 前左
         12, 18,  // 前右
         13, 19,  // 後左
         20, 21   // 後右
@@ -104,8 +109,10 @@ public:
     }
 
     void stopMotor() {
-        for (unsigned pin : motor_cfg_.pins) {
-            set_PWM_dutycycle(pi_, pin, 0);
+        if (pi_ >= 0) {
+            for (unsigned pin : motor_cfg_.pins) {
+                set_PWM_dutycycle(pi_, pin, 0);
+            }
         }
     }
 
@@ -120,31 +127,13 @@ private:
     };
 
     void loadParameters() {
-        nh_.param("robot_radius_m",
-                  routing_cfg_.robot_radius_m,
-                  routing_cfg_.robot_radius_m);
-        nh_.param("safety_margin_m",
-                  routing_cfg_.safety_margin_m,
-                  routing_cfg_.safety_margin_m);
-        nh_.param("sector_deg", sector_deg_, 5.0);
-        routing_cfg_.sector_rad = sector_deg_ * kPi / 180.0;
-
-        nh_.param("lidar_yaw_offset_rad",
-                  routing_cfg_.lidar_yaw_offset_rad,
-                  routing_cfg_.lidar_yaw_offset_rad);
-        nh_.param("ball_timeout_sec",
-                  routing_cfg_.ball_timeout_sec,
-                  routing_cfg_.ball_timeout_sec);
-        nh_.param("scan_timeout_sec",
-                  routing_cfg_.scan_timeout_sec,
-                  routing_cfg_.scan_timeout_sec);
-
-        nh_.param("translate_duty",
-                  motor_cfg_.translate_duty,
-                  motor_cfg_.translate_duty);
-        nh_.param("heading_kp",
-                  motor_cfg_.heading_kp,
-                  motor_cfg_.heading_kp);
+        nh_.param("robot_radius_m", routing_cfg_.robot_radius_m, routing_cfg_.robot_radius_m);
+        nh_.param("safety_margin_m", routing_cfg_.safety_margin_m, routing_cfg_.safety_margin_m);
+        nh_.param("lidar_yaw_offset_rad", routing_cfg_.lidar_yaw_offset_rad, routing_cfg_.lidar_yaw_offset_rad);
+        nh_.param("ball_timeout_sec", routing_cfg_.ball_timeout_sec, routing_cfg_.ball_timeout_sec);
+        nh_.param("scan_timeout_sec", routing_cfg_.scan_timeout_sec, routing_cfg_.scan_timeout_sec);
+        nh_.param("translate_duty", motor_cfg_.translate_duty, motor_cfg_.translate_duty);
+        nh_.param("heading_kp", motor_cfg_.heading_kp, motor_cfg_.heading_kp);
     }
 
     void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg) {
@@ -161,7 +150,6 @@ private:
         ball_.received_at = ros::WallTime::now();
         ball_.detected = msg->detected;
 
-        // detected=false は通信としては正常だが、走行は停止する。
         if (!msg->detected) {
             ball_.valid = true;
             ball_.theta_rad = 0.0;
@@ -169,11 +157,7 @@ private:
             return;
         }
 
-        // UART受信ノードでも検証するが、制御ノード側でも防御的に検証する。
-        if (!isValidTheta(msg->theta_rad) ||
-            !isValidDistance(msg->distance_m)) {
-            ROS_WARN_THROTTLE(
-                1.0, "不正なボール情報を受信したため停止します。");
+        if (!isValidTheta(msg->theta_rad) || !isValidDistance(msg->distance_m)) {
             ball_.valid = false;
             return;
         }
@@ -199,32 +183,23 @@ private:
 
         const ros::WallTime now = ros::WallTime::now();
 
-        // 通信断、未検出、不正データでは必ず停止する。
-        if (!ball.received ||
-            !ball.valid ||
-            !ball.detected ||
+        if (!ball.received || !ball.valid || !ball.detected ||
             (now - ball.received_at).toSec() >= routing_cfg_.ball_timeout_sec) {
-            ROS_WARN_THROTTLE(1.0, "ボール情報が無効またはタイムアウト。停止します。");
             stopMotor();
             return;
         }
 
-        // LiDAR未受信・更新停止でも必ず停止する。
-        if (!scan_received ||
-            (now - scan_received_at).toSec() >= routing_cfg_.scan_timeout_sec) {
-            ROS_WARN_THROTTLE(1.0, "LiDARデータが無効またはタイムアウト。停止します。");
+        if (!scan_received || (now - scan_received_at).toSec() >= routing_cfg_.scan_timeout_sec) {
             stopMotor();
             return;
         }
 
         double move_theta_body = 0.0;
         if (!calculateSafeDirection(scan, ball.theta_rad, move_theta_body)) {
-            ROS_WARN_THROTTLE(1.0, "安全な進行方向がないため停止します。");
             stopMotor();
             return;
         }
 
-        // ball_theta と move_theta は別の値として扱う。
         driveMecanum(move_theta_body, ball.theta_rad);
     }
 
@@ -232,123 +207,114 @@ private:
         const sensor_msgs::LaserScan& scan,
         double ball_theta_body,
         double& move_theta_body) const {
-        if (scan.ranges.empty() ||
-            !std::isfinite(scan.angle_increment) ||
-            scan.angle_increment == 0.0) {
+        
+        if (scan.ranges.empty() || !std::isfinite(scan.angle_increment) || scan.angle_increment == 0.0) {
             return false;
         }
 
-        const int sector_count =
-            static_cast<int>(std::ceil((2.0 * kPi) / routing_cfg_.sector_rad));
-
-        std::vector<bool> safe(sector_count, true);
-        std::vector<bool> covered(sector_count, false);
-
-        // 画像側のball_thetaは車体座標系。
-        // LiDAR座標系へ変換して、候補方向との比較に用いる。
-        const double target_theta_lidar = normalizeAngle(
-            ball_theta_body - routing_cfg_.lidar_yaw_offset_rad);
-
-        for (int sector = 0; sector < sector_count; ++sector) {
-            const double candidate_lidar =
-                normalizeAngle(-kPi + sector * routing_cfg_.sector_rad);
-
-            // LiDARの実際の測定角度範囲外は安全と見なさない。
-            for (std::size_t i = 0; i < scan.ranges.size(); ++i) {
-                const double scan_angle =
-                    scan.angle_min + i * scan.angle_increment;
-
-                if (angleDifference(scan_angle, candidate_lidar) <=
-                    routing_cfg_.sector_rad * 0.5) {
-                    covered[sector] = true;
-                    break;
-                }
-            }
-        }
+        const int sector_count = routing_cfg_.sector_count;
+        const double sector_rad = (2.0 * kPi) / sector_count;
+        
+        // 各セクターの最小障害物距離（初期値は無限大）
+        std::vector<double> min_dist(sector_count, std::numeric_limits<double>::infinity());
+        
+        const double target_theta_lidar = normalizeAngle(ball_theta_body - routing_cfg_.lidar_yaw_offset_rad);
+        const double safety_radius = routing_cfg_.robot_radius_m + routing_cfg_.safety_margin_m;
 
         bool has_valid_measurement = false;
 
+        // 点群から各セクターの最小距離を求める
         for (std::size_t i = 0; i < scan.ranges.size(); ++i) {
             const double distance = scan.ranges[i];
-            const double obstacle_angle =
-                scan.angle_min + i * scan.angle_increment;
+            const double obstacle_angle = scan.angle_min + i * scan.angle_increment;
 
-            // inf は「測定上限まで障害物なし」として扱う。
-            if (std::isinf(distance) && distance > 0.0) {
-                has_valid_measurement = true;
-                continue;
-            }
-
-            // NaN、0、範囲外の値は障害物計算に使用しない。
-            if (!std::isfinite(distance) ||
-                distance < scan.range_min ||
-                distance > scan.range_max ||
-                distance <= 0.0) {
+            if (!std::isfinite(distance) || distance < scan.range_min || distance > scan.range_max || distance <= 0.0) {
                 continue;
             }
 
             has_valid_measurement = true;
 
-            const double safety_radius =
-                routing_cfg_.robot_radius_m + routing_cfg_.safety_margin_m;
-
-            // ロボットの外接円に対して衝突し得る角度範囲を算出する。
+            // ロボットの外接円に対して衝突し得る角度範囲を算出
             const double ratio = std::min(1.0, safety_radius / distance);
             const double blocked_half_width = std::asin(ratio);
 
             for (int sector = 0; sector < sector_count; ++sector) {
-                const double candidate_lidar =
-                    normalizeAngle(-kPi + sector * routing_cfg_.sector_rad);
-
-                if (angleDifference(candidate_lidar, obstacle_angle) <=
-                    blocked_half_width) {
-                    safe[sector] = false;
+                const double candidate_lidar = normalizeAngle(-kPi + sector * sector_rad);
+                
+                // 障害物がセクターに被る場合、最小距離を更新
+                if (angleDifference(candidate_lidar, obstacle_angle) <= blocked_half_width + (sector_rad * 0.5)) {
+                    if (distance < min_dist[sector]) {
+                        min_dist[sector] = distance;
+                    }
                 }
             }
         }
 
-        if (!has_valid_measurement) {
-            return false;
+        if (!has_valid_measurement) return false;
+
+        // 距離から開き具合（1〜10）へスコア化
+        std::vector<int> scores(sector_count, 10);
+        for (int i = 0; i < sector_count; ++i) {
+            if (min_dist[i] <= safety_radius) {
+                scores[i] = 1; // 進行不可
+            } else if (std::isinf(min_dist[i]) || min_dist[i] >= routing_cfg_.max_eval_dist) {
+                scores[i] = 10; // 完全に進行可能
+            } else {
+                double ratio = (min_dist[i] - safety_radius) / (routing_cfg_.max_eval_dist - safety_radius);
+                scores[i] = 1 + static_cast<int>(ratio * 9.0);
+                scores[i] = std::clamp(scores[i], 1, 10);
+            }
         }
 
         bool found = false;
         double best_cost = std::numeric_limits<double>::infinity();
+        int best_sector = -1;
         double best_lidar_theta = 0.0;
 
+        // ボール方向に最も近い、安全な進行方向を選ぶ
         for (int sector = 0; sector < sector_count; ++sector) {
-            if (!covered[sector] || !safe[sector]) {
-                continue;
-            }
+            if (scores[sector] <= 1) continue; // 障害物がある方向は除外
 
-            const double candidate_lidar =
-                normalizeAngle(-kPi + sector * routing_cfg_.sector_rad);
-
-            // 目標（ボール）に最も近い安全な進行方向を選ぶ。
-            const double cost =
-                angleDifference(candidate_lidar, target_theta_lidar);
+            const double candidate_lidar = normalizeAngle(-kPi + sector * sector_rad);
+            const double cost = angleDifference(candidate_lidar, target_theta_lidar);
 
             if (cost < best_cost) {
                 found = true;
                 best_cost = cost;
+                best_sector = sector;
                 best_lidar_theta = candidate_lidar;
             }
         }
 
+        // ターミナルへ1行で出力
+        std::ostringstream output;
+        output << "セクタースコア(1-10): [ ";
+        for (int s : scores) {
+            output << std::setw(2) << s << " ";
+        }
+        output << "] ";
+
         if (!found) {
+            output << "| 最適方向: NONE (全方向ブロック)";
+            std::cout << output.str() << std::endl;
             return false;
         }
 
-        // LiDAR座標系から車体座標系へ戻す。
-        move_theta_body = normalizeAngle(
-            best_lidar_theta + routing_cfg_.lidar_yaw_offset_rad);
+        move_theta_body = normalizeAngle(best_lidar_theta + routing_cfg_.lidar_yaw_offset_rad);
+        
+        output << "| 最適方向: " 
+               << std::setw(4) << static_cast<int>(best_lidar_theta * 180.0 / kPi) 
+               << " 度 (スコア: " << scores[best_sector] << ")";
+        std::cout << output.str() << std::endl;
+
         return true;
     }
 
     void driveMecanum(double move_theta, double ball_theta) {
+        // [元のdriveMecanum処理は変更なし]
         const double vx = std::cos(move_theta);
         const double vy = std::sin(move_theta);
 
-        // ボールの方向へ車体を向ける回転成分。
         const double w = std::clamp(
             motor_cfg_.heading_kp * ball_theta,
             -motor_cfg_.max_turn_component,
@@ -373,6 +339,8 @@ private:
                     std::abs(normalized) * motor_cfg_.translate_duty,
                     static_cast<double>(motor_cfg_.max_duty))));
 
+            if (pi_ < 0) continue; // テスト環境でpigpioが無くても落ちないように保護
+
             const unsigned forward_pin = motor_cfg_.pins[i * 2];
             const unsigned reverse_pin = motor_cfg_.pins[i * 2 + 1];
 
@@ -394,7 +362,6 @@ private:
     int pi_;
     RoutingConfig routing_cfg_;
     MotorConfig motor_cfg_;
-    double sector_deg_ = 5.0;
 
     std::mutex mutex_;
     sensor_msgs::LaserScan latest_scan_;
@@ -404,13 +371,18 @@ private:
 };
 
 int main(int argc, char** argv) {
-    ros::init(argc, argv, "lidar_motion_node");
+    ros::init(argc, argv, "lidar_motion_node_test");
     ros::NodeHandle nh("~");
 
-    const int pi = pigpio_start(nullptr, nullptr);
+    // テスト時にpigpioが動作しない環境でもシミュレートできるようにする
+    int pi = pigpio_start(nullptr, nullptr);
+    if (pi < 0) {
+        ROS_WARN("pigpioへの接続に失敗しました。ハードウェア出力はスキップしロジックのみ実行します。");
+    }
+
     LidarMotionNode node(nh, pi);
 
-    if (!node.startMotor()) {
+    if (pi >= 0 && !node.startMotor()) {
         return 1;
     }
 
