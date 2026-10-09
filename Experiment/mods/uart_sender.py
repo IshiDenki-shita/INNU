@@ -45,7 +45,7 @@ class UARTSender:
         port: str = "/dev/serial0",  # LiDARラズパイへのUART送信ポート
         baudrate: int = 9600,
         write_timeout: float = 1.0,
-        max_send_hz: float = 30.0,
+        max_send_hz: float = 50.0,
     ) -> None:
 
         self.ser: Optional[serial.Serial] = None

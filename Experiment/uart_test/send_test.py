@@ -55,8 +55,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--hz", type=float, default=10.0, help="送信頻度(最大30)")
     parser.add_argument("--fault", action="store_true", help="不正フレームも送る")
     args = parser.parse_args()
-    if not (0.0 < args.hz <= 30.0):
-        parser.error(f"--hzは0より大きく{30.0}以下にしてください")
+    if not (0.0 < args.hz <= 50.0):
+        parser.error(f"--hzは0より大きく{50.0}以下にしてください")
     return args
 
 
