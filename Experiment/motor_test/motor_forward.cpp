@@ -41,7 +41,7 @@ public:
         set_PWM_frequency(pi, cfg.MC_2, cfg.pwm_freq);
         set_PWM_frequency(pi, cfg.MD_1, cfg.pwm_freq);
         set_PWM_frequency(pi, cfg.MD_2, cfg.pwm_freq);
-	set_PWM_frequency(pi, 27, cfg.pwm_freq);
+	    set_PWM_frequency(pi, 27, cfg.pwm_freq);
     }
 
     // 前進方向のmotor_dutiesを計算する（出力はしない）

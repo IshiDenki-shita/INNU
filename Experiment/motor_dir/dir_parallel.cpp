@@ -25,7 +25,7 @@ struct MotorConfig {
 
     // モーターのピン配置
     // 割り当て: MA=左前(FL), MB=右前(FR), MC=左後(RL), MD=右後(RR)
-    uint8_t MA_1 = 4;
+    uint8_t MA_1 = 22;
     uint8_t MA_2 = 10;
     uint8_t MB_1 = 12;
     uint8_t MB_2 = 18;
