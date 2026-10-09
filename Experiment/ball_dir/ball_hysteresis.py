@@ -20,7 +20,7 @@ if __name__ == "__main__":
             red = cam.extract_red_bgr(img=img)
             clean = cam.remove_noise(red)
 
-            x, y = ball.run(red=red, is_xy=True)
+            x, y, is_detected = ball.run(red=red, is_xy=True)
 
             overlay = ball.draw_detection_overlay(
                 original_img=clean, red_mask=clean, center_x=int(x), center_y=int(y)

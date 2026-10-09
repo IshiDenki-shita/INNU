@@ -1,5 +1,5 @@
 """
-ボールのred画像を受け取って
+red画像を受け取って、ロボットからみたボールの座標を返すためのクラス
 """
 
 from typing import Tuple
@@ -48,10 +48,10 @@ class BallDetection:
         x, y = self.calc_crood_with_hysteresis(x, y)
 
         if (x, y) == (-1, -1):
-            return 0, -1  # ロスト時のtheta, distance
+            return 0.0, 0.0, 0  # ロスト時のtheta, distance, detected
 
         if is_xy:
-            return x, y
+            return x, y, 1
         else:
             return self.calc_ball_position((x, y), S)
 
@@ -120,7 +120,7 @@ class BallDetection:
 
     def calc_ball_position(
         self, crood: Tuple[int, int], S: float
-    ) -> Tuple[float, float]:
+    ) -> Tuple[float, float, int]:
         # direction
         theta_board = self.theta_board
         theta = theta_board[crood]
@@ -128,7 +128,7 @@ class BallDetection:
         # distance
         distance = np.sqrt(S, dtype="float16") / self.distance_correction_val  # meter
 
-        return theta, distance
+        return theta, distance, 1  # 最後の1はボール検出成功のフラグ(detectedフラグ)
 
     def plot_red_detection(
         self,
