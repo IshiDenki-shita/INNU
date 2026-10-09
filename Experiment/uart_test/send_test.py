@@ -187,12 +187,12 @@ def send_fault_frame(uart: UARTSender, kind: str, theta: float, dist: float) -> 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="UART送信テスト")
-    parser.add_argument("port", nargs="?", default=uart.port)
+    parser.add_argument("port", nargs="?", default="/dev/serial0")
     parser.add_argument("--hz", type=float, default=10.0, help="送信頻度(最大30)")
     parser.add_argument("--fault", action="store_true", help="不正フレームも送る")
     args = parser.parse_args()
-    if not (0.0 < args.hz <= uart.max_send_hz):
-        parser.error(f"--hzは0より大きく{uart.max_send_hz}以下にしてください")
+    if not (0.0 < args.hz <= 30.0):
+        parser.error(f"--hzは0より大きく{30.0}以下にしてください")
     return args
 
 
