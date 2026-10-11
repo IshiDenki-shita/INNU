@@ -1,28 +1,49 @@
-# 色認識の調整に使う画像をラズベリーパイのカメラで撮影します。
-# 起動後に待機してからフレームを取得し、指定先へ保存します。
+# カメラ映像をリアルタイム表示し、キー操作で写真を保存します。
 """
-色認識キャリブレーション用: ラズパイカメラで撮影するだけのコード
+色認識キャリブレーション用の写真を撮影するコード
 
-カメラ起動から一定時間（デフォルト5秒）待ってから撮影し、保存する。
-撮影した画像ファイルをMacに転送して color_extract.py で使う。
+ライブ映像を確認しながらスペースキーを押すと、
+Experiment/color_picking/photos/capture.jpg に写真を保存する。
+qキーまたはEscキーで終了する。
 """
 
-import time
 from pathlib import Path
+
+import cv2
 
 from Experiment.mods.camera_public import CameraPublic
 
+
+def main() -> None:
+    save_path = Path("Experiment/color_picking/photos/capture.jpg")
+    window_name = "Color Capture - SPACE: capture / q: quit"
+
+    cam = CameraPublic()
+
+    try:
+        cam.start_camera()
+        cv2.namedWindow(window_name)
+        print("カメラ映像を表示しています。スペースキーで撮影してください。")
+        print("終了するには q キーまたは Esc キーを押してください。")
+
+        while True:
+            frame = cam.get_frame()
+            cv2.imshow(window_name, frame)
+
+            key = cv2.waitKey(1) & 0xFF
+            if key in (ord("q"), 27):
+                break
+
+            if key == ord(" "):
+                save_path.parent.mkdir(parents=True, exist_ok=True)
+                if not cv2.imwrite(str(save_path), frame):
+                    raise RuntimeError(f"写真を保存できませんでした: {save_path}")
+                print(f"写真を保存しました: {save_path}")
+
+    finally:
+        cv2.destroyAllWindows()
+        cam.stop_camera()
+
+
 if __name__ == "__main__":
-    WARM_UP_SEC: float = 5.0
-    save_path = Path("home/ubuntu/Desktop/INNU/Experiment/color_picking/photos")
-
-    cam = CameraPublic(STORAGE_PATH=save_path)
-
-    cam.start_camera()
-    print(f"カメラ起動。{WARM_UP_SEC}秒後に撮影します...")
-    time.sleep(WARM_UP_SEC)
-
-    img = cam.get_frame()
-
-    cam.save_frame(img=img)
-    print(f"保存しました: {save_path}")
+    main()
