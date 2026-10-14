@@ -10,7 +10,7 @@ bool stale
 */
 
 #include <ros/ros.h>
-#include <innurobot_uart/BallTarget.h>
+#include <innu_uart/BallTarget.h>
 
 #include <array>
 #include <atomic>
@@ -291,7 +291,7 @@ int main(int argc, char** argv) {
     pnh.param<std::string>("port", cfg.port, "/dev/serial0");
     pnh.param<int>("timeout_ms", cfg.timeout_ms, 500);
 
-    ros::Publisher pub = nh.advertise<innurobot_uart::BallTarget>("/ball_target", 10);
+    ros::Publisher pub = nh.advertise<innu_uart::BallTarget>("/ball_target", 10);
 
     UARTReceiver receiver(cfg);
     if (!receiver.start()) {
