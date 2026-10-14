@@ -1,0 +1,41 @@
+cmake_minimum_required(VERSION 3.0.2)
+project(innurobot_uart)
+
+add_compile_options(-std=c++17 -O2)
+
+find_package(catkin REQUIRED COMPONENTS
+  roscpp
+  std_msgs
+  message_generation
+)
+
+# カスタムメッセージの生成登録
+add_message_files(
+  FILES
+  BallTarget.msg
+)
+
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+)
+
+catkin_package(
+  CATKIN_DEPENDS roscpp std_msgs message_runtime
+)
+
+include_directories(
+  ${catkin_INCLUDE_DIRS}
+)
+
+# ノード（実行ファイル）の作成
+add_executable(uart_receiver_node src/uart_receiver_node.cpp)
+
+# メッセージ生成への依存関係を設定
+add_dependencies(uart_receiver_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+# ライブラリのリンク
+target_link_libraries(uart_receiver_node
+  ${catkin_LIBRARIES}
+  pthread
+)
