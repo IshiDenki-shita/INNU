@@ -43,7 +43,7 @@ class UARTSender:
     def __init__(
         self,
         port: str = "/dev/serial0",  # LiDARラズパイへのUART送信ポート
-        baudrate: int = 9600,
+        baudrate: int = 115200,
         write_timeout: float = 1.0,
         max_send_hz: float = 50.0,
     ) -> None:

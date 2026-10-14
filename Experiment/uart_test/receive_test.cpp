@@ -36,7 +36,7 @@ static_assert(sizeof(float) == 4 && std::numeric_limits<float>::is_iec559,
 
 struct UARTConfig {
     std::string port = "/dev/serial0";
-    speed_t baudrate = B9600;
+    speed_t baudrate = B115200;
     int timeout_ms = 500;
 };
 
@@ -301,8 +301,8 @@ int main(int argc, char** argv) {
 
     ROS_INFO("UART Receiver Node started: port=%s", cfg.port.c_str());
 
-    // 20Hz (50ms) でトピックをパブリッシュするループ
-    ros::Rate rate(20);
+    // 40Hz でトピックをパブリッシュするループ
+    ros::Rate rate(40);
     while (ros::ok()) {
         bool stale = false;
         UARTReceiver::BallTargetData target = receiver.getLatest(stale);
