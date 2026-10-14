@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(innurobot_uart)
+project(innu_uart)
 
 add_compile_options(-std=c++17 -O2)
 
@@ -29,10 +29,10 @@ include_directories(
 )
 
 # ノード（実行ファイル）の作成
-add_executable(uart_receiver_node src/uart_receiver_node.cpp)
+add_executable(uart_receiver src/uart_receiver.cpp)
 
 # メッセージ生成への依存関係を設定
-add_dependencies(uart_receiver_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(uart_receiver ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 # ライブラリのリンク
 target_link_libraries(uart_receiver_node
