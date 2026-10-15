@@ -15,6 +15,8 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#include <limits>
+
 
 namespace {
     constexpr float kPi = 3.14159265358979323846f;
@@ -113,7 +115,7 @@ public:
             } else {
                 float ratio = (min_dist[i] - safety_radius) / (cfg.max_eval_dist - safety_radius);
                 scores[i] = 1 + static_cast<int>(ratio * 9.0f);
-                scores[i] = std::clamp(scores[i], 1, 10);
+                scores[i] = std::min(std::max(scores[i], 1), 10);
             }
         }
 
