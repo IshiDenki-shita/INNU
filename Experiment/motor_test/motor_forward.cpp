@@ -96,15 +96,6 @@ int main(int argc, char** argv) {
     while (ros::ok()) {
         motors.PWMshootor();
 
-	printf("GPIO4 duty=%d freq=%d\n",
-       get_PWM_dutycycle(pi, 4),
-       get_PWM_frequency(pi, 4));
-
-printf("GPIO10 duty=%d freq=%d\n",
-       get_PWM_dutycycle(pi, 10),
-       get_PWM_frequency(pi, 10));
-
-
         ros::spinOnce();
         rate.sleep();
     }
