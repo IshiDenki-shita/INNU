@@ -7,7 +7,7 @@
 
 #include <ros/ros.h>
 #include <sensor_msgs/LaserScan.h>
-#include <std_msgs/Float32MultiArray.h>
+#include <innu_uart/BallTarget.h>  // std_msgs/Float32MultiArray.h から変更
 
 #include <cmath>
 #include <algorithm>
@@ -37,12 +37,11 @@ bool purpose_detected_g = false;
 bool has_received_g = false;
 ros::Time last_update_g;
 
-void ballTargetCallback(const std_msgs::Float32MultiArray::ConstPtr& msg)
+void ballTargetCallback(const innu_uart::BallTarget::ConstPtr& msg)
 {
-    if (msg->data.size() < 3) return;
-    float theta = msg->data[0];
-    float distance = msg->data[1];
-    bool detected = msg->data[2] > 0.5f;
+    float theta = msg->theta_rad;
+    float distance = msg->distance_m;
+    bool detected = msg->detected;
 
     if (!std::isfinite(theta) || !std::isfinite(distance) || distance < 0.0f) return;
 
@@ -176,7 +175,7 @@ int main(int argc, char** argv) {
     VHFRouter router(vhf_cfg);
 
     // dir_rotating.cpp に合わせたサブスクライバ構成
-    ros::Subscriber ball_sub = n.subscribe<std_msgs::Float32MultiArray>("/ball_target", 10, ballTargetCallback);
+    ros::Subscriber ball_sub = n.subscribe<innu_uart::BallTarget>("/ball_target", 10, ballTargetCallback);
     ros::Subscriber scan_sub = n.subscribe<sensor_msgs::LaserScan>("/scan", 10, scanCallback);
 
     ros::Rate rate(50);
