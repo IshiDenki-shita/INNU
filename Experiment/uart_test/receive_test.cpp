@@ -35,7 +35,7 @@ static_assert(sizeof(float) == 4 && std::numeric_limits<float>::is_iec559,
               "UART protocol requires IEEE-754 float32");
 
 struct UARTConfig {
-    std::string port = "/dev/serial0";
+    std::string port = "/dev/ttyS0";
     speed_t baudrate = B115200;
     int timeout_ms = 500;
 };
@@ -307,7 +307,7 @@ int main(int argc, char** argv) {
         bool stale = false;
         UARTReceiver::BallTargetData target = receiver.getLatest(stale);
 
-        innurobot_uart::BallTarget msg;
+        innu_uart::BallTarget msg;
         msg.theta_rad = target.theta_rad;
         msg.distance_m = target.distance_m;
         msg.detected = target.detected;
