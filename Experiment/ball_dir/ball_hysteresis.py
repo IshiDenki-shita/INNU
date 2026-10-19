@@ -17,13 +17,28 @@ if __name__ == "__main__":
     try:
         while True:
             img = cam.get_frame()
+            if img is None:
+                continue
+
+            # 赤色抽出とノイズ除去
             red = cam.extract_red_bgr(img=img)
             clean = cam.remove_noise(red)
 
-            x, y, is_detected = ball.run(red=red, is_xy=True)
+            # ノイズ除去後のマスク画像(clean)を用いてボール位置を検出
+            x, y, is_detected = ball.run(red=clean, is_xy=True)
 
+            # 1チャンネル(グレースケール/2値)のマスクであることを保証
+            if len(clean.shape) == 3:
+                mask_single = cv2.cvtColor(clean, cv2.COLOR_BGR2GRAY)
+            else:
+                mask_single = clean
+
+            # 元のカラー画像(img)の上に検出結果と赤色マスクをオーバーレイ描画
             overlay = ball.draw_detection_overlay(
-                original_img=clean, red_mask=clean, center_x=int(x), center_y=int(y)
+                original_img=img,
+                red_mask=mask_single,
+                center_x=int(x),
+                center_y=int(y),
             )
             cv2.imshow("Red Ball Detection", overlay)
 
@@ -34,4 +49,5 @@ if __name__ == "__main__":
         print("Stopping...")
 
     finally:
+        cam.stop_camera()
         cv2.destroyAllWindows()
