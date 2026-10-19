@@ -15,7 +15,7 @@ from Experiment.mods.camera_public import CameraPublic
 
 
 def main() -> None:
-    save_path = Path("Experiment/color_picking/photos/capture.jpg")
+    save_path = Path("Experiment/photos/caps/capture.jpg")
     window_name = "Color Capture - SPACE: capture / q: quit"
 
     cam = CameraPublic()
