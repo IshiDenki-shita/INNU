@@ -1,5 +1,3 @@
-# Picamera2の撮影と画像処理を共通化するCameraPublicクラスを定義します。
-# フレーム取得、保存、ノイズ除去、赤色抽出、ライブ表示を提供します。
 import time
 from datetime import datetime
 from pathlib import Path
@@ -60,27 +58,29 @@ class CameraPublic:
         time.sleep(2)
 
     def stop_camera(self) -> None:
-        """
-        カメラを停止してリソースを解放する。
-        start_camera()と対になる関数。未起動・二重呼び出しでも安全。
-        """
         if self.cam is None:
             return
 
         try:
             self.cam.stop()
         finally:
-            # stop()で例外が出ても、必ずデバイスを解放する
             self.cam.close()
             self.cam = None
 
     def get_frame(self) -> np.ndarray:
-        return self.cam.capture_array()
+        """
+        カメラからフレームを取得し、OpenCV標準の BGR 形式に変換して返します。
+        """
+        frame_rgb = self.cam.capture_array()
+        if frame_rgb is None:
+            return None
+        # Picamera2(RGB) -> OpenCV(BGR) へ変換
+        return cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
 
     def save_frame(self, img) -> None:
         self.STORAGE_PATH.mkdir(exist_ok=True)
-        pic_name = str(datetime.now())
-        cv2.imwrite(filename=self.STORAGE_PATH / pic_name, img=img)
+        pic_name = str(datetime.now()) + ".jpg"
+        cv2.imwrite(filename=str(self.STORAGE_PATH / pic_name), img=img)
 
     def get_sample_photo(self):
         img = cv2.imread(str(self.SAMPLE_PATH))
@@ -107,18 +107,15 @@ class CameraPublic:
         return red_bin
 
     def show_live(self, show_mask: bool = True) -> None:
-        """
-        撮影した映像をリアルタイムでデスクトップに表示する。
-        赤抽出結果を目視確認するため、show_mask=Trueなら
-        元映像とマスク適用結果を横に並べて表示する。
-        'q'キーで終了。
-        """
         if self.cam is None:
             raise RuntimeError("カメラが起動されていません")
 
         try:
             while True:
+                # get_frame() で BGR 画像が返るため、そのまま処理可能
                 frame = self.get_frame()
+                if frame is None:
+                    continue
 
                 if show_mask:
                     red = self.extract_red_bgr(frame)
