@@ -132,7 +132,7 @@ class BallDetection:
         theta = theta_board[y, x]
 
         # distance
-        distance = np.sqrt(S, dtype="float16") / self.distance_correction_val  # meter
+        distance = self.distance_correction_val / np.sqrt(S, dtype="float16")  # meter
 
         return theta, distance, 1  # 最後の1はボール検出成功のフラグ(detectedフラグ)
 
