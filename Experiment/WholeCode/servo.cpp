@@ -12,6 +12,28 @@
 #include <limits>
 #include <cstdint>
 
+// ==================== 実験・調整用パラメータ ====================
+namespace Tuning {
+    // --- 1. モーター個体差のPWM調整係数 ---
+    constexpr float MOTOR_FL_MULT = 1.0f;
+    constexpr float MOTOR_FR_MULT = 1.0f;
+    constexpr float MOTOR_RL_MULT = 1.0f;
+    constexpr float MOTOR_RR_MULT = 1.0f;
+
+    // --- 2. モーターの基本動作パラメータ ---
+    constexpr int TRANSLATE_SPEED = 100;        // 並進ベース速度(duty)
+    constexpr float HEADING_KP = 80.0f;         // ボール方向へ姿勢を向けるための比例ゲイン
+    constexpr float STOP_DISTANCE = 0.3f;       // [m] これ以下では並進せず姿勢合わせのみ
+    constexpr float FULL_SPEED_DISTANCE = 1.5f;   // [m] これ以上で並進速度最大
+
+    // --- 3. LiDAR 経路計算・BANの調整パラメータ ---
+    constexpr float ROBOT_RADIUS_M = 0.20f;     // ロボットの半径 [m]
+    constexpr float SAFETY_MARGIN_M = 0.10f;    // 障害物回避の追加安全マージン [m]
+    constexpr float MAX_EVAL_DIST = 5.0f;       // 評価対象とする最大障害物距離 [m]
+    constexpr float MIN_VALID_DIST = 0.10f;     // [m] これより近い点は自身の車体やノイズとみなしてBAN（無視）する
+}
+// ==============================================================
+
 namespace {
     constexpr float kPi = 3.14159265358979323846f;
     float normalizeAngle(float angle) {
@@ -58,17 +80,17 @@ void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
 
 // ==================== モーター制御設定 & クラス ====================
 struct MotorConfig {
-    int max_duty = 255;         // デューティー比の最大値
-    int pwm_freq = 3000;        // PWM周波数
-    int translate_speed = 150;  // 並進方向の速度(duty)
-    float heading_kp = 80.0f;   // ボール方向へ姿勢を向けるための比例ゲイン
+    int max_duty = 255;
+    int pwm_freq = 3000;
+    
+    int translate_speed = Tuning::TRANSLATE_SPEED;
+    float heading_kp = Tuning::HEADING_KP;
+    float stop_distance = Tuning::STOP_DISTANCE;
+    float full_speed_distance = Tuning::FULL_SPEED_DISTANCE;
 
-    float stop_distance = 0.3f;        // [m] これ以下では並進せず姿勢合わせのみ
-    float full_speed_distance = 1.5f;  // [m] これ以上で並進速度最大
+    double timeout_s = 0.5;
 
-    double timeout_s = 0.5;  // 通信ロスト判定閾値 [s]
-
-    // モーターのピン配置 (MA=FL, MB=FR, MC=RL, MD=RR)
+    // ピン配置 (MA=FL, MB=FR, MC=RL, MD=RR)
     uint8_t MA_1 = 22;
     uint8_t MA_2 = 10;
     uint8_t MB_1 = 12;
@@ -107,24 +129,26 @@ public:
         return std::min(std::max(ratio, 0.0f), 1.0f);
     }
 
-    // move_theta: 障害物回避を考慮した進行目標方向 [rad]
-    // ball_theta: ロボットの正面を向けるボール方向 [rad]
-    // distance  : ボールまでの距離 [m]
     void DutyUpdate(float move_theta, float ball_theta, float distance) {
         float scale = CalcTranslateScale(distance);
         float vx = scale * std::cos(move_theta);
         float vy = scale * std::sin(move_theta);
 
-        // 姿勢制御（常にボール方向を向く）
         float w = cfg.heading_kp * ball_theta;
 
-        // メカナム制御式
         float fl = vx - vy - w;
         float fr = vx + vy + w;
         float rl = vx + vy - w;
         float rr = vx - vy + w;
 
         float wheel_ratios[4] = {fl, fr, rl, rr};
+        
+        float motor_mults[4] = {
+            Tuning::MOTOR_FL_MULT,
+            Tuning::MOTOR_FR_MULT,
+            Tuning::MOTOR_RL_MULT,
+            Tuning::MOTOR_RR_MULT
+        };
 
         float max_ratio = 0.0f;
         for (float ratio : wheel_ratios) {
@@ -136,8 +160,9 @@ public:
 
         for (int i = 0; i < 4; ++i) {
             float normalized = wheel_ratios[i] / max_ratio;
+            
             int duty = static_cast<int>(std::min(
-                std::abs(normalized) * cfg.translate_speed,
+                std::abs(normalized) * cfg.translate_speed * motor_mults[i],
                 static_cast<float>(cfg.max_duty)));
 
             if (normalized >= 0) {
@@ -173,15 +198,20 @@ private:
     int pi;
 };
 
-// ==================== VHF経路計算モジュール ====================
+// ==================== LiDAR経路計算モジュール ====================
 class VHFRouter {
 public:
     struct Config {
-        float robot_radius_m = 0.20f;
-        float safety_margin_m = 0.10f;
-        float max_eval_dist = 5.0f;
+        float robot_radius_m = Tuning::ROBOT_RADIUS_M;
+        float safety_margin_m = Tuning::SAFETY_MARGIN_M;
+        float max_eval_dist = Tuning::MAX_EVAL_DIST;
         float lidar_yaw_offset_rad = 0.0f;
-        int sector_count = 10;
+    };
+
+    struct Obstacle {
+        float angle;      // 障害物の方位 [rad]
+        float distance;   // 障害物までの距離 [m]
+        float blocked_half_width; // 障害物が占有・ブロックする角度の半幅 [rad]
     };
 
     VHFRouter(const Config& config) : cfg(config) {}
@@ -189,63 +219,68 @@ public:
     bool calculateBestDirection(const sensor_msgs::LaserScan& scan, float target_theta, float& out_move_theta) {
         if (scan.ranges.empty()) return false;
 
-        const float sector_rad = (2.0f * kPi) / cfg.sector_count;
         const float safety_radius = cfg.robot_radius_m + cfg.safety_margin_m;
-        std::vector<float> min_dist(cfg.sector_count, std::numeric_limits<float>::infinity());
+        std::vector<Obstacle> obstacles;
 
+        // 1. 有効な障害物点群をすべて抽出（近距離ノイズBANを適用）
         for (std::size_t i = 0; i < scan.ranges.size(); ++i) {
             float distance = scan.ranges[i];
             float obstacle_angle = scan.angle_min + i * scan.angle_increment;
 
-            if (!std::isfinite(distance) || distance < scan.range_min || distance > scan.range_max || distance <= 0.0f) {
+            // 無効値および MIN_VALID_DIST 以下の近距離ノイズをBANして排除
+            if (!std::isfinite(distance) || 
+                distance < scan.range_min || 
+                distance < Tuning::MIN_VALID_DIST || 
+                distance > scan.range_max || 
+                distance > cfg.max_eval_dist) {
                 continue;
             }
 
             float ratio = std::min(1.0f, safety_radius / distance);
             float blocked_half_width = std::asin(ratio);
 
-            for (int sector = 0; sector < cfg.sector_count; ++sector) {
-                float candidate_lidar = normalizeAngle(-kPi + sector * sector_rad);
-                if (angleDifference(candidate_lidar, obstacle_angle) <= blocked_half_width + (sector_rad * 0.5f)) {
-                    if (distance < min_dist[sector]) {
-                        min_dist[sector] = distance;
-                    }
-                }
-            }
-        }
-
-        std::vector<int> scores(cfg.sector_count, 10);
-        for (int i = 0; i < cfg.sector_count; ++i) {
-            if (min_dist[i] <= safety_radius) {
-                scores[i] = 1;
-            } else if (std::isinf(min_dist[i]) || min_dist[i] >= cfg.max_eval_dist) {
-                scores[i] = 10;
-            } else {
-                float ratio = (min_dist[i] - safety_radius) / (cfg.max_eval_dist - safety_radius);
-                scores[i] = 1 + static_cast<int>(ratio * 9.0f);
-                scores[i] = std::min(std::max(scores[i], 1), 10);
-            }
+            obstacles.push_back({obstacle_angle, distance, blocked_half_width});
         }
 
         float target_theta_lidar = normalizeAngle(target_theta - cfg.lidar_yaw_offset_rad);
+
         bool found = false;
         float best_cost = std::numeric_limits<float>::infinity();
-        int best_sector = -1;
         float best_lidar_theta = 0.0f;
 
-        for (int sector = 0; sector < cfg.sector_count; ++sector) {
-            if (scores[sector] <= 1) continue; 
+        // 2. LiDARの全ビームの角度（連続的な候補角度）に対して直接通過可否とコストを評価
+        for (std::size_t i = 0; i < scan.ranges.size(); ++i) {
+            float candidate_lidar = scan.angle_min + i * scan.angle_increment;
 
-            float candidate_lidar = normalizeAngle(-kPi + sector * sector_rad);
-            
+            // 候補方向が障害物ブロック領域内にあるか判定
+            bool is_blocked = false;
+            float min_obs_dist = std::numeric_limits<float>::infinity();
+
+            for (const auto& obs : obstacles) {
+                if (angleDifference(candidate_lidar, obs.angle) <= obs.blocked_half_width) {
+                    is_blocked = true;
+                    break; // ロボットの車体幅にかかる位置にあれば進行不可
+                }
+                float diff = angleDifference(candidate_lidar, obs.angle);
+                if (diff < (kPi / 4.0f)) { // 近傍の障害物とのクリアランスを評価
+                    min_obs_dist = std::min(min_obs_dist, obs.distance);
+                }
+            }
+
+            if (is_blocked) continue;
+
+            // コスト計算：目標角度からのズレ + 障害物の近さに対するペナルティ
             float angle_cost = angleDifference(candidate_lidar, target_theta_lidar);
-            float clearance_penalty = (10 - scores[sector]) * 0.2f; 
+            float clearance_penalty = 0.0f;
+            if (min_obs_dist < cfg.max_eval_dist) {
+                clearance_penalty = (cfg.max_eval_dist - min_obs_dist) * 0.1f;
+            }
+
             float total_cost = angle_cost + clearance_penalty;
 
             if (total_cost < best_cost) {
                 found = true;
                 best_cost = total_cost;
-                best_sector = sector;
                 best_lidar_theta = candidate_lidar;
             }
         }
@@ -267,7 +302,6 @@ int main(int argc, char** argv) {
     ros::init(argc, argv, "servo");
     ros::NodeHandle n;
 
-    // pigpio デーモン接続初期化
     int pi = pigpio_start(NULL, NULL);
     if (pi < 0) {
         ROS_ERROR("pigpio start failed");
@@ -281,7 +315,6 @@ int main(int argc, char** argv) {
     VHFRouter::Config vhf_cfg;
     VHFRouter router(vhf_cfg);
 
-    // サブスクライバの登録
     ros::Subscriber ball_sub = n.subscribe<innu_uart::BallTarget>("/ball_target", 10, ballTargetCallback);
     ros::Subscriber scan_sub = n.subscribe<sensor_msgs::LaserScan>("/scan", 10, scanCallback);
 
@@ -301,9 +334,7 @@ int main(int argc, char** argv) {
             motors.stop();
         } else {
             float move_theta = 0.0f;
-            // VHF経路計算の呼び出し
             if (router.calculateBestDirection(latest_scan_g, purpose_theta_g, move_theta)) {
-                // 回避角度 move_theta、ボール方位 purpose_theta_g、ボール距離 purpose_distance_g をもとにデューティ比更新
                 motors.DutyUpdate(move_theta, purpose_theta_g, purpose_distance_g);
                 motors.PWMshootor();
             } else {
