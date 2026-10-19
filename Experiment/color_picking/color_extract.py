@@ -22,7 +22,7 @@ import numpy as np
 @dataclass(frozen=True)
 class ExtractConfig:
     PHOTO_PATH: Path = Path("Experiment/photos/caps")
-    PHOTO_NAME: str = "capture.jpg"
+    PHOTO_NAME: str = "capture2.jpg"
     SAMPLES_PATH: Path = Path("Experiment/color_picking/samples")
     SAMPLES_NAME: str = "red_samples.npz"
     # BGR範囲計算時のマージン
