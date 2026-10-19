@@ -222,12 +222,10 @@ public:
         const float safety_radius = cfg.robot_radius_m + cfg.safety_margin_m;
         std::vector<Obstacle> obstacles;
 
-        // 1. 有効な障害物点群をすべて抽出（近距離ノイズBANを適用）
         for (std::size_t i = 0; i < scan.ranges.size(); ++i) {
             float distance = scan.ranges[i];
             float obstacle_angle = scan.angle_min + i * scan.angle_increment;
 
-            // 無効値および MIN_VALID_DIST 以下の近距離ノイズをBANして排除
             if (!std::isfinite(distance) || 
                 distance < scan.range_min || 
                 distance < Tuning::MIN_VALID_DIST || 
@@ -248,28 +246,25 @@ public:
         float best_cost = std::numeric_limits<float>::infinity();
         float best_lidar_theta = 0.0f;
 
-        // 2. LiDARの全ビームの角度（連続的な候補角度）に対して直接通過可否とコストを評価
         for (std::size_t i = 0; i < scan.ranges.size(); ++i) {
             float candidate_lidar = scan.angle_min + i * scan.angle_increment;
 
-            // 候補方向が障害物ブロック領域内にあるか判定
             bool is_blocked = false;
             float min_obs_dist = std::numeric_limits<float>::infinity();
 
             for (const auto& obs : obstacles) {
                 if (angleDifference(candidate_lidar, obs.angle) <= obs.blocked_half_width) {
                     is_blocked = true;
-                    break; // ロボットの車体幅にかかる位置にあれば進行不可
+                    break;
                 }
                 float diff = angleDifference(candidate_lidar, obs.angle);
-                if (diff < (kPi / 4.0f)) { // 近傍の障害物とのクリアランスを評価
+                if (diff < (kPi / 4.0f)) {
                     min_obs_dist = std::min(min_obs_dist, obs.distance);
                 }
             }
 
             if (is_blocked) continue;
 
-            // コスト計算：目標角度からのズレ + 障害物の近さに対するペナルティ
             float angle_cost = angleDifference(candidate_lidar, target_theta_lidar);
             float clearance_penalty = 0.0f;
             if (min_obs_dist < cfg.max_eval_dist) {
@@ -324,21 +319,18 @@ int main(int argc, char** argv) {
         bool stale = !has_received_g || (ros::Time::now() - last_update_g).toSec() > motors.timeout();
 
         if (stale) {
-            ROS_INFO_THROTTLE(1.0, "通信ロストまたは未受信：安全停止");
-            motors.stop();
+            ROS_INFO_THROTTLE(1.0, "Communication lost or not received: Safe Stop");
         } else if (!purpose_detected_g) {
-            ROS_INFO_THROTTLE(1.0, "ボール未検出：停止");
-            motors.stop();
+            ROS_INFO_THROTTLE(1.0, "Ball not detected: Stop");
         } else if (!scan_received_g) {
-            ROS_INFO_THROTTLE(1.0, "LiDAR未受信：停止");
-            motors.stop();
+            ROS_INFO_THROTTLE(1.0, "LiDAR not received: Stop");
         } else {
             float move_theta = 0.0f;
             if (router.calculateBestDirection(latest_scan_g, purpose_theta_g, move_theta)) {
                 motors.DutyUpdate(move_theta, purpose_theta_g, purpose_distance_g);
                 motors.PWMshootor();
             } else {
-                ROS_WARN_THROTTLE(1.0, "全方向障害物ブロック：停止");
+                ROS_WARN_THROTTLE(1.0, "All directions blocked: Stop");
                 motors.stop();
             }
         }
