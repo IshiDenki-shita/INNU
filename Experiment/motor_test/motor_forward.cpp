@@ -2,17 +2,29 @@
 モーターを前進させて動くことを確認するコード
 */
 
-
 #include <ros/ros.h>
 //#include <pigpio.h>
 #include <pigpiod_if2.h>
 #include <cstdint>
+#include <algorithm>
 
-int motor_speed = 150;
-int max_duty =  255;
+// ==================== 実験・調整用パラメータ ====================
+namespace Tuning {
+    // --- 1. モーター個体差のPWM調整係数 ---
+    constexpr float MOTOR_FL_MULT = 1.0f;
+    constexpr float MOTOR_FR_MULT = 1.0f;
+    constexpr float MOTOR_RL_MULT = 1.0f;
+    constexpr float MOTOR_RR_MULT = 1.0f;
+
+    // --- 2. モーター動作パラメータ ---
+    constexpr int MOTOR_SPEED = 150;      // 前進時のベース速度(duty)
+    constexpr int MAX_DUTY = 255;         // デューティー比の最大値
+    constexpr int PWM_FREQ = 3000;        // PWM周波数
+}
+// ==============================================================
 
 struct MotorConfig {
-    int pwm_freq = 3000;  // PWM周波数
+    int pwm_freq = Tuning::PWM_FREQ;  // PWM周波数
 
     // モーターのピン配置
     uint8_t MA_1 = 22;
@@ -35,7 +47,6 @@ public:
     MotorSpinner(const MotorConfig& config, int pi_handle)
         : cfg(config), pi(pi_handle) {}
 
-    // モーターとの接続など（PWM周波数の設定）
     void start() {
         set_PWM_frequency(pi, cfg.MA_1, cfg.pwm_freq);
         set_PWM_frequency(pi, cfg.MA_2, cfg.pwm_freq);
@@ -45,18 +56,28 @@ public:
         set_PWM_frequency(pi, cfg.MC_2, cfg.pwm_freq);
         set_PWM_frequency(pi, cfg.MD_1, cfg.pwm_freq);
         set_PWM_frequency(pi, cfg.MD_2, cfg.pwm_freq);
-	    set_PWM_frequency(pi, 27, cfg.pwm_freq);
+        set_PWM_frequency(pi, 27, cfg.pwm_freq);
     }
 
     // 前進方向のmotor_dutiesを計算する（出力はしない）
     void DutyUpdate(int speed) {
-        motor_duties[0] = 0;     motor_duties[1] = speed;  // MA_1, MA_2
-        motor_duties[2] = 0;     motor_duties[3] = speed;  // MB_1, MB_2
-        motor_duties[4] = 0;     motor_duties[5] = speed;  // MC_1, MC_2
-        motor_duties[6] = 0;     motor_duties[7] = speed;  // MD_1, MD_2
+        float motor_mults[4] = {
+            Tuning::MOTOR_FL_MULT,
+            Tuning::MOTOR_FR_MULT,
+            Tuning::MOTOR_RL_MULT,
+            Tuning::MOTOR_RR_MULT
+        };
+
+        auto calc_duty = [](int base_speed, float mult) {
+            return static_cast<int>(std::min(static_cast<float>(base_speed) * mult, static_cast<float>(Tuning::MAX_DUTY)));
+        };
+
+        motor_duties[0] = 0;     motor_duties[1] = calc_duty(speed, motor_mults[0]);  // MA (FL)
+        motor_duties[2] = 0;     motor_duties[3] = calc_duty(speed, motor_mults[1]);  // MB (FR)
+        motor_duties[4] = 0;     motor_duties[5] = calc_duty(speed, motor_mults[2]);  // MC (RL)
+        motor_duties[6] = 0;     motor_duties[7] = calc_duty(speed, motor_mults[3]);  // MD (RR)
     }
 
-    // motor_dutiesの内容を実際にPWM出力する
     void PWMshootor() {
         set_PWM_dutycycle(pi, cfg.MA_1, motor_duties[0]);
         set_PWM_dutycycle(pi, cfg.MA_2, motor_duties[1]);
@@ -66,10 +87,9 @@ public:
         set_PWM_dutycycle(pi, cfg.MC_2, motor_duties[5]);
         set_PWM_dutycycle(pi, cfg.MD_1, motor_duties[6]);
         set_PWM_dutycycle(pi, cfg.MD_2, motor_duties[7]);
-	set_PWM_dutycycle(pi, 27, 100);
+        set_PWM_dutycycle(pi, 27, 100);
     }
 
-    // モーターとの接続解除など
     void stop() {
         for (int i = 0; i < num_motor * 2; i++) motor_duties[i] = 0;
         PWMshootor();
@@ -90,7 +110,7 @@ int main(int argc, char** argv) {
     MotorSpinner motors(motor_cfg, pi);
     motors.start();
 
-    motors.DutyUpdate(motor_speed);
+    motors.DutyUpdate(Tuning::MOTOR_SPEED);
 
     ros::Rate rate(110);
     while (ros::ok()) {

@@ -16,13 +16,26 @@ subscribeしてモーターを制御する。UARTのバイト列解析はこの�
 
 #include "std_msgs/Float32MultiArray.h"  // 暫定。UART受信ノードのメッセージ形式が確定したら差し替える
 
-// ==================== ボール情報の受信 ====================
-// 通信設計書(2026/10/09)に基づく値。座標系は車体中心基準、正面=0[rad]、反時計回りが正。
-//   theta_rad  : ボール相対方位 [rad]  (-pi < theta <= pi)
-//   distance_m : ボール水平距離 [m]    (0以上)
-//   is_detected: ボール検出状態
-// 暫定メッセージ: Float32MultiArray の data = {theta_rad, distance_m, detected(0 or 1)}
+// ==================== 実験・調整用パラメータ ====================
+namespace Tuning {
+    // --- 1. モーター個体差のPWM調整係数 ---
+    // (FL:左前, FR:右前, RL:左後, RR:右後)
+    // 基準を1.0fとし、回転が遅いモーターの数値を上げる（または速いものを下げる）
+    constexpr float MOTOR_FL_MULT = 1.0f;
+    constexpr float MOTOR_FR_MULT = 1.0f;
+    constexpr float MOTOR_RL_MULT = 1.0f;
+    constexpr float MOTOR_RR_MULT = 1.0f;
 
+    // --- 2. モーターの基本動作パラメータ ---
+    constexpr int TRANSLATE_SPEED = 150;        // 並進ベース速度(duty)
+    constexpr float HEADING_KP = 80.0f;         // ボール方向へ姿勢を向けるための比例ゲイン
+    constexpr float STOP_DISTANCE = 0.3f;       // [m] これ以下では並進せず、姿勢合わせのみ行う
+    constexpr float FULL_SPEED_DISTANCE = 1.5f; // [m] これ以上で並進速度が最大になる
+    constexpr double TIMEOUT_S = 0.5;           // [s] 通信ロスト判定閾値
+}
+// ==============================================================
+
+// ==================== ボール情報の受信 ====================
 float purpose_theta_g = 0.0f;     // ボールへの方角 [rad]
 float purpose_distance_g = 0.0f;  // ボールまでの距離 [m]（遠いほどスピード出す）
 bool purpose_detected_g = false;  // ボール検出状態
@@ -40,7 +53,6 @@ void ballTargetCallback(const std_msgs::Float32MultiArray::ConstPtr& msg)
     float distance = msg->data[1];
     bool detected = msg->data[2] > 0.5f;
 
-    // 不正値は破棄（検証の主担当はUART受信ノード。ここは最後の防壁）
     if (!std::isfinite(theta) || !std::isfinite(distance) || distance < 0.0f) {
         ROS_WARN("ball_target: invalid value (theta=%f, distance=%f)", theta, distance);
         return;
@@ -54,20 +66,17 @@ void ballTargetCallback(const std_msgs::Float32MultiArray::ConstPtr& msg)
 }
 
 struct MotorConfig {
-    int max_duty = 255;         // デューティー比の最大値
-    int pwm_freq = 3000;        // PWM周波数
-    int translate_speed = 150;  // 並進方向の速度(duty)。元のmotor_speedに相当
-    float heading_kp = 80.0f;   // ボール方向へ姿勢を向けるための比例ゲイン
+    int max_duty = 255;
+    int pwm_freq = 3000;
+    
+    // Tuningから初期値を取得
+    int translate_speed = Tuning::TRANSLATE_SPEED;
+    float heading_kp = Tuning::HEADING_KP;
+    float stop_distance = Tuning::STOP_DISTANCE;
+    float full_speed_distance = Tuning::FULL_SPEED_DISTANCE;
+    double timeout_s = Tuning::TIMEOUT_S;
 
-    // 距離に応じた並進速度の調整（値は実験で調整する）
-    float stop_distance = 0.3f;        // [m] これ以下では並進せず、姿勢合わせのみ行う
-    float full_speed_distance = 1.5f;  // [m] これ以上で並進速度が最大になる
-
-    // 通信ロスト判定
-    double timeout_s = 0.5;  // これを超えて未更新ならモーターを停止する
-
-    // モーターのピン配置
-    // 割り当て: MA=左前(FL), MB=右前(FR), MC=左後(RL), MD=右後(RR)
+    // ピン配置
     uint8_t MA_1 = 22;
     uint8_t MA_2 = 10;
     uint8_t MB_1 = 12;
@@ -81,14 +90,11 @@ struct MotorConfig {
 class MotorSpinner {
 public:
     static const int num_motor = 4;
-
-    // モーターごとのデューティー比（各モーター2ピン分）
     int motor_duties[num_motor * 2] = {0, 0, 0, 0, 0, 0, 0, 0};
 
     MotorSpinner(const MotorConfig& config, int pi_handle)
         : cfg(config), pi(pi_handle) {}
 
-    // モーターとの接続など（PWM周波数の設定）
     void start() {
         set_PWM_frequency(pi, cfg.MA_1, cfg.pwm_freq);
         set_PWM_frequency(pi, cfg.MA_2, cfg.pwm_freq);
@@ -100,7 +106,6 @@ public:
         set_PWM_frequency(pi, cfg.MD_2, cfg.pwm_freq);
     }
 
-    // ボールまでの距離[m]から並進成分の係数(0.0〜1.0)を求める。遠いほど大きい。
     float CalcTranslateScale(float distance) const {
         float span = cfg.full_speed_distance - cfg.stop_distance;
         if (span < 1e-6f) {
@@ -110,26 +115,26 @@ public:
         return std::min(std::max(ratio, 0.0f), 1.0f);
     }
 
-    // move_theta: ロボットを進ませたい方向 [rad]（正面基準、反時計回りが正）
-    // ball_theta: ボールへの方角 [rad]（この方向へ姿勢を向け続ける）
-    // distance  : ボールまでの距離 [m]（並進速度の調整に使う）
     void DutyUpdate(float move_theta, float ball_theta, float distance) {
-        // 並進成分（move_thetaの方向へ移動。姿勢の向きとは無関係）
-        // 距離が近いほど小さくなり、stop_distance以下では0（回転のみ）
         float scale = CalcTranslateScale(distance);
         float vx = scale * std::cos(move_theta);
         float vy = scale * std::sin(move_theta);
 
-        // 回転成分（ball_thetaを0に近づける比例制御 = 常にボールを向く）
         float w = cfg.heading_kp * ball_theta;
 
-        // メカナム標準式（並進と回転を合成）
         float fl = vx - vy - w;
         float fr = vx + vy + w;
         float rl = vx + vy - w;
         float rr = vx - vy + w;
 
         float wheel_ratios[4] = {fl, fr, rl, rr};
+
+        float motor_mults[4] = {
+            Tuning::MOTOR_FL_MULT,
+            Tuning::MOTOR_FR_MULT,
+            Tuning::MOTOR_RL_MULT,
+            Tuning::MOTOR_RR_MULT
+        };
 
         float max_ratio = 0.0f;
         for (float ratio : wheel_ratios) {
@@ -142,7 +147,7 @@ public:
         for (int i = 0; i < 4; ++i) {
             float normalized = wheel_ratios[i] / max_ratio;
             int duty = static_cast<int>(std::min(
-                std::abs(normalized) * cfg.translate_speed,
+                std::abs(normalized) * cfg.translate_speed * motor_mults[i],
                 static_cast<float>(cfg.max_duty)));
 
             if (normalized >= 0) {
@@ -155,7 +160,6 @@ public:
         }
     }
 
-    // motor_dutiesの内容を実際にPWM出力する
     void PWMshootor() {
         set_PWM_dutycycle(pi, cfg.MA_1, motor_duties[0]);
         set_PWM_dutycycle(pi, cfg.MA_2, motor_duties[1]);
@@ -167,13 +171,11 @@ public:
         set_PWM_dutycycle(pi, cfg.MD_2, motor_duties[7]);
     }
 
-    // モーターとの接続解除など
     void stop() {
         for (int i = 0; i < num_motor * 2; i++) motor_duties[i] = 0;
         PWMshootor();
     }
 
-    // 通信ロスト判定用の閾値を参照するために公開
     double timeout() const { return cfg.timeout_s; }
 
 private:
@@ -200,15 +202,10 @@ int main(int argc, char** argv) {
                      (ros::Time::now() - last_update_g).toSec() > motors.timeout();
 
         if (stale) {
-            // 通信ロスト（または未受信）：安全のため停止
             motors.stop();
         } else if (!purpose_detected_g) {
-            // ボール未検出：探索動作は未定義のため、現状は停止
             motors.stop();
         } else {
-            // 現状は進行方向を決める別ソース(LiDAR等)がまだ無いため、
-            // 暫定的にボール方向をそのまま進行方向としても使っている。
-            // 経路計画を追加する際はmove_thetaだけ別の値に差し替えればよい。
             motors.DutyUpdate(purpose_theta_g, purpose_theta_g, purpose_distance_g);
             motors.PWMshootor();
         }
