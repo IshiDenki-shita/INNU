@@ -11,10 +11,10 @@
 // ==================== 実験・調整用パラメータ ====================
 namespace Tuning {
     // --- 1. モーター個体差のPWM調整係数 ---
-    constexpr float MOTOR_FL_MULT = 0.685f;
+    constexpr float MOTOR_FL_MULT = 1.0f;
     constexpr float MOTOR_FR_MULT = 1.0f;
     constexpr float MOTOR_RL_MULT = 1.0f;
-    constexpr float MOTOR_RR_MULT = 1.0f;
+    constexpr float MOTOR_RR_MULT = 0.685f;
 
     // --- 2. モーター動作パラメータ ---
     constexpr int MOTOR_SPEED = 150;      // 前進時のベース速度(duty)
@@ -26,15 +26,15 @@ namespace Tuning {
 struct MotorConfig {
     int pwm_freq = Tuning::PWM_FREQ;  // PWM周波数
 
-    // モーターのピン配置
-    uint8_t MA_1 = 22;
-    uint8_t MA_2 = 10;
-    uint8_t MB_1 = 18;
-    uint8_t MB_2 = 12;
-    uint8_t MC_1 = 19;
-    uint8_t MC_2 = 13;
-    uint8_t MD_1 = 20;
-    uint8_t MD_2 = 21;
+    // ピン配置 (MA=FL, MB=FR, MC=RL, MD=RR)
+    uint8_t MA_1 = 20;
+    uint8_t MA_2 = 21;
+    uint8_t MB_1 = 13;
+    uint8_t MB_2 = 19;
+    uint8_t MC_1 = 18;
+    uint8_t MC_2 = 12;
+    uint8_t MD_1 = 10;
+    uint8_t MD_2 = 22;
 };
 
 class MotorSpinner {
