@@ -29,7 +29,7 @@ class BallDetection:
         # ↓画像上の面積とロボットからの距離の較正値
         distance_correction_val: np.float16 = np.float16(1.0),
         # detection hysterises
-        hysterises_length: int = 10,  # ←ボールの座標の履歴の長さ
+        hysterises_length: int = 1,  # ←ボールの座標の履歴の長さ
         THRESH_INTENCITY: float = 30.0,  # ←履歴の座標の分散の閾値
     ) -> None:
 
