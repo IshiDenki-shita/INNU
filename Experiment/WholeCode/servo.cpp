@@ -22,7 +22,7 @@ namespace Tuning {
 
     // --- 2. モーターの基本動作パラメータ ---
     constexpr int TRANSLATE_SPEED = 150;        // 並進ベース速度(duty)
-    constexpr float HEADING_KP = 80.0f;         // ボール方向へ姿勢を向けるための比例ゲイン
+    constexpr float HEADING_KP = 2.0f;         // ボール方向へ姿勢を向けるための比例ゲイン
     constexpr float STOP_DISTANCE = 0.2f;       // [m] これ以下では並進せず姿勢合わせのみ
     constexpr float FULL_SPEED_DISTANCE = 1.5f;   // [m] これ以上で並進速度最大
 
