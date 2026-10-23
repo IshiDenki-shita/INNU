@@ -15,10 +15,10 @@
 // ==================== 実験・調整用パラメータ ====================
 namespace Tuning {
     // --- 1. モーター個体差のPWM調整係数 ---
-    constexpr float MOTOR_FL_MULT = 0.685f;
+    constexpr float MOTOR_FL_MULT = 1.0f;
     constexpr float MOTOR_FR_MULT = 1.0f;
     constexpr float MOTOR_RL_MULT = 1.0f;
-    constexpr float MOTOR_RR_MULT = 1.0f;
+    constexpr float MOTOR_RR_MULT = 0.685f;
 
     // --- 2. モーターの基本動作パラメータ ---
     constexpr int TRANSLATE_SPEED = 150;        // 並進ベース速度(duty)
