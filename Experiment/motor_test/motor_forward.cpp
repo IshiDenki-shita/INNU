@@ -72,10 +72,10 @@ public:
             return static_cast<int>(std::min(static_cast<float>(base_speed) * mult, static_cast<float>(Tuning::MAX_DUTY)));
         };
 
-        motor_duties[0] = 0;     motor_duties[1] = calc_duty(speed, motor_mults[0]);  // MA (FL)
-        motor_duties[2] = 0;     motor_duties[3] = calc_duty(speed, motor_mults[1]);  // MB (FR)
-        motor_duties[4] = 0;     motor_duties[5] = calc_duty(speed, motor_mults[2]);  // MC (RL)
-        motor_duties[6] = 0;     motor_duties[7] = calc_duty(speed, motor_mults[3]);  // MD (RR)
+        motor_duties[1] = 0;     motor_duties[0] = calc_duty(speed, motor_mults[0]);  // MA (FL)
+        motor_duties[3] = 0;     motor_duties[2] = calc_duty(speed, motor_mults[1]);  // MB (FR)
+        motor_duties[5] = 0;     motor_duties[4] = calc_duty(speed, motor_mults[2]);  // MC (RL)
+        motor_duties[7] = 0;     motor_duties[6] = calc_duty(speed, motor_mults[3]);  // MD (RR)
     }
 
     void PWMshootor() {
