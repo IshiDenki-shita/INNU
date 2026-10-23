@@ -27,8 +27,8 @@ struct MotorConfig {
     int pwm_freq = Tuning::PWM_FREQ;  // PWM周波数
 
     // ピン配置 (MA=FL, MB=FR, MC=RL, MD=RR)
-    uint8_t MA_1 = 20;
-    uint8_t MA_2 = 21;
+    uint8_t MA_1 = 21;
+    uint8_t MA_2 = 20;
     uint8_t MB_1 = 13;
     uint8_t MB_2 = 19;
     uint8_t MC_1 = 18;
