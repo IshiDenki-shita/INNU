@@ -6,7 +6,6 @@
 """
 
 import signal
-import sys
 import time
 
 from Experiment.mods.ball_detection import BallDetection
@@ -74,11 +73,11 @@ def main():
             # ログ出力
             if sent:
                 if detected_bool:
-                    logger.debug(
+                    logger.info(
                         f"[UART送信] θ: {theta:.3f} rad, d: {distance:.3f} m, det: {detected_bool}"
                     )
                 else:
-                    logger.debug("[UART送信] ボール未検出 (detected=False)")
+                    logger.info("[UART送信] ボール未検出 (detected=False)")
 
             # 40Hzの周期維持用スリープ
             time.sleep(1.0 / 40.0)
