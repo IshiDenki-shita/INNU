@@ -11,7 +11,7 @@
 // ==================== 実験・調整用パラメータ ====================
 namespace Tuning {
     // --- 1. モーター個体差のPWM調整係数 ---
-    constexpr float MOTOR_FL_MULT = 1.0f;
+    constexpr float MOTOR_FL_MULT = 0.685f;
     constexpr float MOTOR_FR_MULT = 1.0f;
     constexpr float MOTOR_RL_MULT = 1.0f;
     constexpr float MOTOR_RR_MULT = 1.0f;
