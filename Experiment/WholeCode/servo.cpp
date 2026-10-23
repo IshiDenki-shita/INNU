@@ -166,11 +166,11 @@ public:
                 static_cast<float>(cfg.max_duty)));
 
             if (normalized >= 0) {
-                motor_duties[i * 2] = duty;
-                motor_duties[i * 2 + 1] = 0;
-            } else {
                 motor_duties[i * 2] = 0;
                 motor_duties[i * 2 + 1] = duty;
+            } else {
+                motor_duties[i * 2] = duty;
+                motor_duties[i * 2 + 1] = 0;
             }
         }
     }
