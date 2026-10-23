@@ -22,7 +22,7 @@ class BallDetection:
         # ↓画像上のxy座標とロボットからみたthetaの変換表
         theta_board: np.ndarray = np.tile(
             A=np.linspace(
-                start=np.pi * 2 / 3, stop=-np.pi / 3, num=640, dtype=np.float16
+                start=-np.pi * 2 / 3, stop=np.pi / 3, num=640, dtype=np.float16
             ),
             reps=(480, 1),
         ),
