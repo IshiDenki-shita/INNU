@@ -15,15 +15,15 @@
 // ==================== 実験・調整用パラメータ ====================
 namespace Tuning {
     // --- 1. モーター個体差のPWM調整係数 ---
-    constexpr float MOTOR_FL_MULT = 1.0f;
+    constexpr float MOTOR_FL_MULT = 0.685f;
     constexpr float MOTOR_FR_MULT = 1.0f;
     constexpr float MOTOR_RL_MULT = 1.0f;
     constexpr float MOTOR_RR_MULT = 1.0f;
 
     // --- 2. モーターの基本動作パラメータ ---
-    constexpr int TRANSLATE_SPEED = 100;        // 並進ベース速度(duty)
+    constexpr int TRANSLATE_SPEED = 150;        // 並進ベース速度(duty)
     constexpr float HEADING_KP = 80.0f;         // ボール方向へ姿勢を向けるための比例ゲイン
-    constexpr float STOP_DISTANCE = 0.3f;       // [m] これ以下では並進せず姿勢合わせのみ
+    constexpr float STOP_DISTANCE = 0.2f;       // [m] これ以下では並進せず姿勢合わせのみ
     constexpr float FULL_SPEED_DISTANCE = 1.5f;   // [m] これ以上で並進速度最大
 
     // --- 3. LiDAR 経路計算・BANの調整パラメータ ---
@@ -91,14 +91,14 @@ struct MotorConfig {
     double timeout_s = 0.5;
 
     // ピン配置 (MA=FL, MB=FR, MC=RL, MD=RR)
-    uint8_t MA_1 = 22;
-    uint8_t MA_2 = 10;
-    uint8_t MB_1 = 12;
-    uint8_t MB_2 = 18;
-    uint8_t MC_1 = 13;
-    uint8_t MC_2 = 19;
-    uint8_t MD_1 = 20;
-    uint8_t MD_2 = 21;
+    uint8_t MA_1 = 13;
+    uint8_t MA_2 = 19;
+    uint8_t MB_1 = 20;
+    uint8_t MB_2 = 21;
+    uint8_t MC_1 = 18;
+    uint8_t MC_2 = 12;
+    uint8_t MD_1 = 22;
+    uint8_t MD_2 = 10;
 };
 
 class MotorSpinner {
