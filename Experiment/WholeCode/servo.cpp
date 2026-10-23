@@ -22,7 +22,7 @@ namespace Tuning {
 
     // --- 2. モーターの基本動作パラメータ ---
     constexpr int TRANSLATE_SPEED = 150;        // 並進ベース速度(duty)
-    constexpr float HEADING_KP = 2.0f;         // ボール方向へ姿勢を向けるための比例ゲイン
+    constexpr float HEADING_KP = 2.0f;          // ボール方向へ姿勢を向けるための比例ゲイン
     constexpr float STOP_DISTANCE = 0.2f;       // [m] これ以下では並進せず姿勢合わせのみ
     constexpr float FULL_SPEED_DISTANCE = 1.5f;   // [m] これ以上で並進速度最大
 
@@ -320,10 +320,13 @@ int main(int argc, char** argv) {
 
         if (stale) {
             ROS_INFO_THROTTLE(1.0, "Communication lost or not received: Safe Stop");
+            motors.stop();
         } else if (!purpose_detected_g) {
             ROS_INFO_THROTTLE(1.0, "Ball not detected: Stop");
+            motors.stop();
         } else if (!scan_received_g) {
             ROS_INFO_THROTTLE(1.0, "LiDAR not received: Stop");
+            motors.stop();
         } else {
             float move_theta = 0.0f;
             if (router.calculateBestDirection(latest_scan_g, purpose_theta_g, move_theta)) {
