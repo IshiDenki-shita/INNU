@@ -123,18 +123,23 @@ class BallDetection:
 
         return ans
 
-    def calc_ball_position(
-        self, crood: Tuple[int, int], S: float
-    ) -> Tuple[float, float, int]:
-        # direction
-        theta_board = self.theta_board
-        x, y = crood
-        theta = theta_board[y, x]
 
-        # distance
-        distance = self.distance_correction_val / np.sqrt(S, dtype="float16")  # meter
+def calc_ball_position(
+    self, crood: Tuple[int, int], S: float
+) -> Tuple[float, float, int]:
+    # ボール未検出または面積が0以下の場合は即座に未検出(0)として返す
+    if S <= 0:
+        return 0.0, 0.0, 0
 
-        return theta, distance, 1  # 最後の1はボール検出成功のフラグ(detectedフラグ)
+    # direction
+    theta_board = self.theta_board
+    x, y = crood
+    theta = theta_board[y, x]
+
+    # distance (ゼロ除算防止のため 1e-6 を加算)
+    distance = self.distance_correction_val / (np.sqrt(S, dtype="float16") + 1e-6)
+
+    return float(theta), float(distance), 1
 
     def plot_red_detection(
         self,
