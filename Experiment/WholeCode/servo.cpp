@@ -90,14 +90,14 @@ struct MotorConfig {
     double timeout_s = 0.5;
 
     // ピン配置 (MA=FL, MB=FR, MC=RL, MD=RR)
-    uint8_t MA_1 = 20;
-    uint8_t MA_2 = 21;
-    uint8_t MB_1 = 19;
-    uint8_t MB_2 = 13;
-    uint8_t MC_1 = 12;
-    uint8_t MC_2 = 18;
-    uint8_t MD_1 = 22;
-    uint8_t MD_2 = 10;
+    uint8_t MA_1 = 21;
+    uint8_t MA_2 = 20;
+    uint8_t MB_1 = 13;
+    uint8_t MB_2 = 19;
+    uint8_t MC_1 = 18;
+    uint8_t MC_2 = 12;
+    uint8_t MD_1 = 10;
+    uint8_t MD_2 = 22;
 };
 
 class MotorSpinner {
