@@ -8,6 +8,18 @@ import cv2
 
 from Experiment.mods.logger import logger
 
+# 画像上のピクセルからロボ視点の方角へ変換するテーブルの初期値
+default_board = np.hstack(
+    tup=(
+        np.ones(shape=(128, 480), dtype=np.float16) * np.float16(0.253),
+        np.ones(shape=(128, 480), dtype=np.float16) * np.float16(0.126),
+        np.ones(shape=(128, 480), dtype=np.float16) * np.float16(0.0),
+        np.ones(shape=(128, 480), dtype=np.float16) * np.float16(-0.126),
+        np.ones(shape=(128, 480), dtype=np.float16) * np.float16(-0.253),
+    ),
+    dtype=np.float16,
+)
+
 
 class BallDetection:
 
@@ -20,15 +32,7 @@ class BallDetection:
         THRESH_CIRCULARITY: float = 0.8,
         # calc ball position
         # ↓画像上のxy座標とロボットからみたthetaの変換表
-        theta_board: np.ndarray = np.tile(
-            A=np.linspace(
-                start=-np.float16(0.253),
-                stop=np.float16(0.253),
-                num=640,
-                dtype=np.float16,
-            ),
-            reps=(480, 1),
-        ),
+        theta_board: np.ndarray = default_board,
         # ↓画像上の面積とロボットからの距離の較正値
         distance_correction_val: np.float16 = np.float16(202.0),
         # detection hysterises
