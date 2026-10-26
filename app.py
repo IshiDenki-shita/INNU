@@ -7,6 +7,7 @@
 
 import signal
 import time
+from gpiozero import LED
 
 from Experiment.mods.ball_detection import BallDetection
 from Experiment.mods.camera_public import CameraPublic
@@ -15,6 +16,11 @@ from Experiment.mods.uart_sender import UARTSender
 
 
 def main():
+    # 0. デバッグ用LEDの初期化 (A:赤=16, B:黄=20, C:緑=21)[span_1](start_span)[span_1](end_span)
+    led_red = LED(16)
+    led_yellow = LED(20)
+    led_green = LED(21)
+
     # 1. 各モジュールの初期化 (通信仕様: 115200 bps / 40 Hz)
     camera = CameraPublic(TARGET_FPS=40)
     detector = BallDetection()
@@ -40,10 +46,18 @@ def main():
     try:
         camera.start_camera()
         uart.start()
+        # カメラとの接続が正常な場合、赤LEDをON[span_2](start_span)[span_2](end_span)
+        led_red.on()
         logger.info("メインループを開始しました。(Ctrl+C で停止)")
     except Exception as e:
         logger.error(f"モジュールの起動に失敗しました: {e}")
+        # カメラとの接続に問題がある場合、赤LEDを点滅[span_3](start_span)[span_3](end_span)
+        led_red.blink()
+        time.sleep(3)  # エラー点滅を目視確認するための待機
+        led_red.off()
         return
+
+    uart_send_count = 0
 
     # 4. メインループ
     try:
@@ -63,6 +77,12 @@ def main():
             theta, distance, detected = detector.run(clean_red)
             detected_bool = bool(detected)
 
+            # ボール検出状態に応じて黄LEDを操作[span_4](start_span)[span_4](end_span)
+            if detected_bool:
+                led_yellow.on()  # 赤ボールを検出
+            else:
+                led_yellow.off()  # 赤ボールをロスト
+
             # (4) UARTフレーム送信
             sent = uart.send(
                 theta_rad=float(theta),
@@ -70,8 +90,16 @@ def main():
                 detected=detected_bool,
             )
 
-            # ログ出力
+            # UART送信状態に応じて緑LEDを操作[span_5](start_span)[span_5](end_span)
             if sent:
+                if uart_send_count % 2 == 0:
+                    led_green.on()  # 送信完了(偶数回)
+                else:
+                    led_green.off()  # 送信完了(奇数回)
+
+                uart_send_count += 1
+
+                # ログ出力
                 if detected_bool:
                     logger.info(
                         f"[UART送信] θ: {theta:.3f} rad, d: {distance:.3f} m, det: {detected_bool}"
@@ -84,10 +112,19 @@ def main():
 
     except Exception as e:
         logger.error(f"実行中にエラーが発生しました: {e}", exc_info=True)
+        # その他エラー発生時は全LEDをOFFにする[span_6](start_span)[span_6](end_span)
+        led_red.off()
+        led_yellow.off()
+        led_green.off()
 
     # 5. リソースの解放処理
     finally:
         logger.info("リソースを解放中...")
+        # 終了時も全LEDを安全に消灯[span_7](start_span)[span_7](end_span)
+        led_red.off()
+        led_yellow.off()
+        led_green.off()
+
         try:
             camera.stop_camera()
         except Exception as e:

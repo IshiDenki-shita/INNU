@@ -6,3 +6,4 @@ picamera2
 rplidar-roboticia
 pyserial
 matplotlib
+gpiozero
