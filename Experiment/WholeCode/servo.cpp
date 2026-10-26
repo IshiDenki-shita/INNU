@@ -26,11 +26,10 @@ namespace Tuning {
     constexpr float STOP_DISTANCE = 0.2f;       // [m] これ以下では並進せず姿勢合わせのみ
     constexpr float FULL_SPEED_DISTANCE = 1.5f;   // [m] これ以上で並進速度最大
 
-    // --- 3. LiDAR 経路計算・BANの調整パラメータ ---
+    // --- 3. LiDAR 経路計算の調整パラメータ ---
     constexpr float ROBOT_RADIUS_M = 0.20f;     // ロボットの半径 [m]
     constexpr float SAFETY_MARGIN_M = 0.10f;    // 障害物回避の追加安全マージン [m]
     constexpr float MAX_EVAL_DIST = 5.0f;       // 評価対象とする最大障害物距離 [m]
-    constexpr float MIN_VALID_DIST = 0.10f;     // [m] これより近い点は自身の車体やノイズとみなしてBAN（無視）する
 }
 // ==============================================================
 
@@ -130,10 +129,9 @@ public:
     }
 
     void DutyUpdate(float move_theta, float ball_theta, float distance) { 
-        float move_theta2 = move_theta + kPi;
         float scale = CalcTranslateScale(distance);
-        float vx = scale * std::cos(move_theta2);
-        float vy = scale * std::sin(move_theta2);
+        float vx = scale * std::cos(move_theta);
+        float vy = scale * std::sin(move_theta);
 
         float w = cfg.heading_kp * ball_theta;
 
@@ -206,7 +204,6 @@ public:
         float robot_radius_m = Tuning::ROBOT_RADIUS_M;
         float safety_margin_m = Tuning::SAFETY_MARGIN_M;
         float max_eval_dist = Tuning::MAX_EVAL_DIST;
-        // 修正箇所：LiDARの前後反転を補正
         float lidar_yaw_offset_rad = kPi; 
     };
 
