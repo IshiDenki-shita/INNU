@@ -205,7 +205,8 @@ public:
         float robot_radius_m = Tuning::ROBOT_RADIUS_M;
         float safety_margin_m = Tuning::SAFETY_MARGIN_M;
         float max_eval_dist = Tuning::MAX_EVAL_DIST;
-        float lidar_yaw_offset_rad = 0.0f;
+        // 修正箇所：LiDARの前後反転を補正
+        float lidar_yaw_offset_rad = kPi; 
     };
 
     struct Obstacle {
