@@ -21,7 +21,7 @@ namespace Tuning {
     constexpr float MOTOR_RR_MULT = 0.685f;
 
     // --- 2. モーターの基本動作パラメータ ---
-    constexpr int TRANSLATE_SPEED = 150;        // 並進ベース速度(duty)
+    constexpr int TRANSLATE_SPEED = 200;        // 並進ベース速度(duty)
     constexpr float HEADING_KP = 2.0f;          // ボール方向へ姿勢を向けるための比例ゲイン
     constexpr float STOP_DISTANCE = 0.2f;       // [m] これ以下では並進せず姿勢合わせのみ
     constexpr float FULL_SPEED_DISTANCE = 1.5f;   // [m] これ以上で並進速度最大
@@ -167,11 +167,11 @@ public:
                 static_cast<float>(cfg.max_duty)));
 
             if (normalized >= 0) {
-                motor_duties[i * 2] = 0;
-                motor_duties[i * 2 + 1] = duty;
-            } else {
                 motor_duties[i * 2] = duty;
                 motor_duties[i * 2 + 1] = 0;
+            } else {
+                motor_duties[i * 2] = 0;
+                motor_duties[i * 2 + 1] = duty;
             }
         }
     }
@@ -230,7 +230,6 @@ public:
 
             if (!std::isfinite(distance) || 
                 distance < scan.range_min || 
-                distance < Tuning::MIN_VALID_DIST || 
                 distance > scan.range_max || 
                 distance > cfg.max_eval_dist) {
                 continue;
