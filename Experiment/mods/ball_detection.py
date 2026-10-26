@@ -11,11 +11,11 @@ from Experiment.mods.logger import logger
 # 画像上のピクセルからロボ視点の方角へ変換するテーブルの初期値
 default_board = np.hstack(
     tup=(
-        np.ones(shape=(128, 480), dtype=np.float16) * np.float16(0.253),
-        np.ones(shape=(128, 480), dtype=np.float16) * np.float16(0.126),
-        np.ones(shape=(128, 480), dtype=np.float16) * np.float16(0.0),
-        np.ones(shape=(128, 480), dtype=np.float16) * np.float16(-0.126),
-        np.ones(shape=(128, 480), dtype=np.float16) * np.float16(-0.253),
+        np.ones(shape=(480, 128), dtype=np.float16) * np.float16(0.253),
+        np.ones(shape=(480, 128), dtype=np.float16) * np.float16(0.126),
+        np.ones(shape=(480, 128), dtype=np.float16) * np.float16(0.0),
+        np.ones(shape=(480, 128), dtype=np.float16) * np.float16(-0.126),
+        np.ones(shape=(480, 128), dtype=np.float16) * np.float16(-0.253),
     ),
     dtype=np.float16,
 )
