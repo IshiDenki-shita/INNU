@@ -91,14 +91,14 @@ struct MotorConfig {
     double timeout_s = 0.5;
 
     // ピン配置 (MA=FL, MB=FR, MC=RL, MD=RR)
-    uint8_t MA_1 = 21;
-    uint8_t MA_2 = 20;
-    uint8_t MB_1 = 13;
-    uint8_t MB_2 = 19;
-    uint8_t MC_1 = 18;
-    uint8_t MC_2 = 12;
-    uint8_t MD_1 = 10;
-    uint8_t MD_2 = 22;
+    uint8_t MA_1 = 20;
+    uint8_t MA_2 = 21;
+    uint8_t MB_1 = 19;
+    uint8_t MB_2 = 13;
+    uint8_t MC_1 = 12;
+    uint8_t MC_2 = 18;
+    uint8_t MD_1 = 22;
+    uint8_t MD_2 = 10;
 };
 
 class MotorSpinner {
@@ -129,10 +129,11 @@ public:
         return std::min(std::max(ratio, 0.0f), 1.0f);
     }
 
-    void DutyUpdate(float move_theta, float ball_theta, float distance) {
+    void DutyUpdate(float move_theta, float ball_theta, float distance) { 
+        float move_theta2 = move_theta + kPi;
         float scale = CalcTranslateScale(distance);
-        float vx = scale * std::cos(move_theta);
-        float vy = scale * std::sin(move_theta);
+        float vx = scale * std::cos(move_theta2);
+        float vy = scale * std::sin(move_theta2);
 
         float w = cfg.heading_kp * ball_theta;
 
