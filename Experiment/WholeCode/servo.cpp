@@ -204,7 +204,6 @@ public:
         float robot_radius_m = Tuning::ROBOT_RADIUS_M;
         float safety_margin_m = Tuning::SAFETY_MARGIN_M;
         float max_eval_dist = Tuning::MAX_EVAL_DIST;
-        float lidar_yaw_offset_rad = kPi; 
     };
 
     struct Obstacle {
@@ -238,7 +237,7 @@ public:
             obstacles.push_back({obstacle_angle, distance, blocked_half_width});
         }
 
-        float target_theta_lidar = normalizeAngle(target_theta - cfg.lidar_yaw_offset_rad);
+        float target_theta_lidar = normalizeAngle(target_theta);
 
         bool found = false;
         float best_cost = std::numeric_limits<float>::infinity();
@@ -281,7 +280,7 @@ public:
         if (!found) {
             return false;
         } else {
-            out_move_theta = normalizeAngle(best_lidar_theta + cfg.lidar_yaw_offset_rad);
+            out_move_theta = normalizeAngle(best_lidar_theta);
             return true;
         }
     }
