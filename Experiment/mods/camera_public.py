@@ -24,8 +24,8 @@ class CameraPublic:
         # FPS
         TARGET_FPS: int = 30,
         # red color range (BGR)
-        LOWER_BGR: np.ndarray = np.array([3, 2, 77]),
-        UPPER_BGR: np.ndarray = np.array([104, 99, 190]),
+        LOWER_BGR: np.ndarray = np.array([49, 0, 193]),
+        UPPER_BGR: np.ndarray = np.array([255, 180, 255]),
     ):
         self.SAMPLE_PATH = SAMPLE_PATH
         self.STORAGE_PATH = STORAGE_PATH
