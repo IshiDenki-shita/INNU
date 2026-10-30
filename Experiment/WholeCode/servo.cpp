@@ -26,10 +26,11 @@ namespace Tuning {
     constexpr float STOP_DISTANCE = 0.2f;       // [m] これ以下では並進せず姿勢合わせのみ
     constexpr float FULL_SPEED_DISTANCE = 1.5f;   // [m] これ以上で並進速度最大
 
-    // --- 3. LiDAR 経路計算の調整パラメータ ---
+    // --- 3. LiDAR 経路計算・BANの調整パラメータ ---
     constexpr float ROBOT_RADIUS_M = 0.20f;     // ロボットの半径 [m]
     constexpr float SAFETY_MARGIN_M = 0.10f;    // 障害物回避の追加安全マージン [m]
     constexpr float MAX_EVAL_DIST = 5.0f;       // 評価対象とする最大障害物距離 [m]
+    constexpr float MIN_VALID_DIST = 0.10f;     // [m] これより近い点は自身の車体やノイズとみなしてBAN（無視）する
 }
 // ==============================================================
 
@@ -52,19 +53,35 @@ bool purpose_detected_g = false;  // ボール検出状態
 bool has_received_g = false;      // 通信受信履歴
 ros::Time last_update_g;          // 最終受信時刻
 
+// ★追加：ロスト状態が始まった時刻を記録する変数
+ros::Time lost_start_time_g;      
+
 void ballTargetCallback(const innu_uart::BallTarget::ConstPtr& msg)
 {
     float theta = msg->theta_rad;
     float distance = msg->distance_m;
     bool detected = msg->detected;
 
-    if (!std::isfinite(theta) || !std::isfinite(distance) || distance < 0.0f) return;
-
-    purpose_theta_g = theta;
-    purpose_distance_g = distance;
-    purpose_detected_g = detected;
     has_received_g = true;
     last_update_g = ros::Time::now();
+
+    // ボール未検出の場合
+    if (!detected) {
+        // 直前まで検出されていた場合のみ、ロスト開始時刻を記録する
+        if (purpose_detected_g) {
+            lost_start_time_g = ros::Time::now();
+            purpose_detected_g = false;
+        }
+        return; 
+    }
+
+    // 検出されているのに異常値が送られてきた場合は安全のため無視（更新しない）
+    if (!std::isfinite(theta) || !std::isfinite(distance) || distance < 0.0f) return;
+
+    // ボールが検出されている場合は最新座標に更新し、ロスト開始時刻をリセット
+    purpose_theta_g = theta;
+    purpose_distance_g = distance;
+    purpose_detected_g = true;
 }
 
 // ==================== LiDAR情報の受信 ====================
@@ -87,7 +104,7 @@ struct MotorConfig {
     float stop_distance = Tuning::STOP_DISTANCE;
     float full_speed_distance = Tuning::FULL_SPEED_DISTANCE;
 
-    double timeout_s = 0.5;
+    double timeout_s = 0.5; // 通信自体が途絶えた場合の安全停止用（ロスト判定とは別）
 
     // ピン配置 (MA=FL, MB=FR, MC=RL, MD=RR)
     uint8_t MA_1 = 21;
@@ -128,7 +145,7 @@ public:
         return std::min(std::max(ratio, 0.0f), 1.0f);
     }
 
-    void DutyUpdate(float move_theta, float ball_theta, float distance) { 
+    void DutyUpdate(float move_theta, float ball_theta, float distance) {
         float scale = CalcTranslateScale(distance);
         float vx = scale * std::cos(move_theta);
         float vy = scale * std::sin(move_theta);
@@ -204,6 +221,7 @@ public:
         float robot_radius_m = Tuning::ROBOT_RADIUS_M;
         float safety_margin_m = Tuning::SAFETY_MARGIN_M;
         float max_eval_dist = Tuning::MAX_EVAL_DIST;
+        float lidar_yaw_offset_rad = 0.0f;
     };
 
     struct Obstacle {
@@ -226,6 +244,7 @@ public:
 
             if (!std::isfinite(distance) || 
                 distance < scan.range_min || 
+                distance < Tuning::MIN_VALID_DIST || 
                 distance > scan.range_max || 
                 distance > cfg.max_eval_dist) {
                 continue;
@@ -237,7 +256,7 @@ public:
             obstacles.push_back({obstacle_angle, distance, blocked_half_width});
         }
 
-        float target_theta_lidar = normalizeAngle(target_theta);
+        float target_theta_lidar = normalizeAngle(target_theta - cfg.lidar_yaw_offset_rad);
 
         bool found = false;
         float best_cost = std::numeric_limits<float>::infinity();
@@ -280,7 +299,7 @@ public:
         if (!found) {
             return false;
         } else {
-            out_move_theta = normalizeAngle(best_lidar_theta);
+            out_move_theta = normalizeAngle(best_lidar_theta + cfg.lidar_yaw_offset_rad);
             return true;
         }
     }
@@ -313,18 +332,23 @@ int main(int argc, char** argv) {
     ros::Rate rate(50);
 
     while (ros::ok()) {
-        bool stale = !has_received_g || (ros::Time::now() - last_update_g).toSec() > motors.timeout();
+        bool comm_stale = !has_received_g || (ros::Time::now() - last_update_g).toSec() > motors.timeout();
+        
+        // ★追加：ボール未検出状態が1秒（1.0秒）以上続いているか判定
+        bool lost_timeout = !purpose_detected_g && has_received_g && ((ros::Time::now() - lost_start_time_g).toSec() > 1.0);
 
-        if (stale) {
+        if (comm_stale) {
             ROS_INFO_THROTTLE(1.0, "Communication lost or not received: Safe Stop");
             motors.stop();
-        } else if (!purpose_detected_g) {
-            ROS_INFO_THROTTLE(1.0, "Ball not detected: Stop");
+        } else if (lost_timeout) {
+            // ロスト状態が1秒間継続したため停止
+            ROS_INFO_THROTTLE(1.0, "Ball lost for 1 sec: Stop");
             motors.stop();
         } else if (!scan_received_g) {
             ROS_INFO_THROTTLE(1.0, "LiDAR not received: Stop");
             motors.stop();
         } else {
+            // ロストしていても1秒未満であれば、直前の purpose_theta_g / purpose_distance_g を使用して追従を継続する
             float move_theta = 0.0f;
             if (router.calculateBestDirection(latest_scan_g, purpose_theta_g, move_theta)) {
                 motors.DutyUpdate(move_theta, purpose_theta_g, purpose_distance_g);
