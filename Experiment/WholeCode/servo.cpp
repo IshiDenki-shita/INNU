@@ -53,7 +53,7 @@ bool purpose_detected_g = false;  // ボール検出状態
 bool has_received_g = false;      // 通信受信履歴
 ros::Time last_update_g;          // 最終受信時刻
 
-// ★追加：ロスト状態が始まった時刻を記録する変数
+// ★ロスト状態が始まった時刻を記録する変数
 ros::Time lost_start_time_g;      
 
 void ballTargetCallback(const innu_uart::BallTarget::ConstPtr& msg)
@@ -182,11 +182,11 @@ public:
                 static_cast<float>(cfg.max_duty)));
 
             if (normalized >= 0) {
-                motor_duties[i * 2] = duty;
-                motor_duties[i * 2 + 1] = 0;
-            } else {
                 motor_duties[i * 2] = 0;
                 motor_duties[i * 2 + 1] = duty;
+            } else {
+                motor_duties[i * 2] = duty;
+                motor_duties[i * 2 + 1] = 0;
             }
         }
     }
@@ -221,7 +221,8 @@ public:
         float robot_radius_m = Tuning::ROBOT_RADIUS_M;
         float safety_margin_m = Tuning::SAFETY_MARGIN_M;
         float max_eval_dist = Tuning::MAX_EVAL_DIST;
-        float lidar_yaw_offset_rad = 0.0f;
+        // ★修正箇所：LiDARの左(+90度)をロボットの正面(0度)にするため -π/2 のオフセットを適用
+        float lidar_yaw_offset_rad = -kPi / 2.0f; 
     };
 
     struct Obstacle {
@@ -334,7 +335,7 @@ int main(int argc, char** argv) {
     while (ros::ok()) {
         bool comm_stale = !has_received_g || (ros::Time::now() - last_update_g).toSec() > motors.timeout();
         
-        // ★追加：ボール未検出状態が1秒（1.0秒）以上続いているか判定
+        // ボール未検出状態が1秒（1.0秒）以上続いているか判定
         bool lost_timeout = !purpose_detected_g && has_received_g && ((ros::Time::now() - lost_start_time_g).toSec() > 1.0);
 
         if (comm_stale) {
