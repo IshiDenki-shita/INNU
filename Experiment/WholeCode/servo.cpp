@@ -22,15 +22,15 @@ namespace Tuning {
 
     // --- 2. モーターの基本動作パラメータ ---
     constexpr int TRANSLATE_SPEED = 200;        // 並進ベース速度(duty)
-    constexpr float HEADING_KP = 2.0f;          // ボール方向へ姿勢を向けるための比例ゲイン
-    constexpr float STOP_DISTANCE = 0.2f;       // [m] これ以下では並進せず姿勢合わせのみ
+    constexpr float HEADING_KP = 0.1f;          // ボール方向へ姿勢を向けるための比例ゲイン
+    constexpr float STOP_DISTANCE = 0.1f;       // [m] これ以下では並進せず姿勢合わせのみ
     constexpr float FULL_SPEED_DISTANCE = 1.5f;   // [m] これ以上で並進速度最大
 
     // --- 3. LiDAR 経路計算・BANの調整パラメータ ---
     constexpr float ROBOT_RADIUS_M = 0.20f;     // ロボットの半径 [m]
-    constexpr float SAFETY_MARGIN_M = 0.10f;    // 障害物回避の追加安全マージン [m]
-    constexpr float MAX_EVAL_DIST = 5.0f;       // 評価対象とする最大障害物距離 [m]
-    constexpr float MIN_VALID_DIST = 0.10f;     // [m] これより近い点は自身の車体やノイズとみなしてBAN（無視）する
+    constexpr float SAFETY_MARGIN_M = 0.05f;    // 障害物回避の追加安全マージン [m]
+    constexpr float MAX_EVAL_DIST = 2.0f;       // 評価対象とする最大障害物距離 [m]
+    constexpr float MIN_VALID_DIST = 0.01f;     // [m] これより近い点は自身の車体やノイズとみなしてBAN（無視）する
 }
 // ==============================================================
 
@@ -355,6 +355,7 @@ int main(int argc, char** argv) {
         else {
             // ★画像のみで追従するため、直接ボールの角度を進行方向に設定
             float move_theta = purpose_theta_g; 
+            move_theta += kPi;
 
             /* ★LiDAR経路計算をコメントアウト
             if (router.calculateBestDirection(latest_scan_g, purpose_theta_g, move_theta)) {
