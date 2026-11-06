@@ -357,7 +357,6 @@ int main(int argc, char** argv) {
             float move_theta = purpose_theta_g; 
             move_theta += kPi;
 
-            /* ★LiDAR経路計算をコメントアウト
             if (router.calculateBestDirection(latest_scan_g, purpose_theta_g, move_theta)) {
                 motors.DutyUpdate(move_theta, purpose_theta_g, purpose_distance_g);
                 motors.PWMshootor();
@@ -365,11 +364,10 @@ int main(int argc, char** argv) {
                 ROS_WARN_THROTTLE(1.0, "All directions blocked: Stop");
                 motors.stop();
             }
-            */
 
             // ★モーター出力（障害物回避なしでボールへ直進）
-            motors.DutyUpdate(move_theta, purpose_theta_g, purpose_distance_g);
-            motors.PWMshootor();
+            // motors.DutyUpdate(move_theta, purpose_theta_g, purpose_distance_g);
+            // motors.PWMshootor();
         }
 
         ros::spinOnce();
