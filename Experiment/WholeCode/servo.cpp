@@ -345,12 +345,18 @@ int main(int argc, char** argv) {
             // ロスト状態が1秒間継続したため停止
             ROS_INFO_THROTTLE(1.0, "Ball lost for 1 sec: Stop");
             motors.stop();
-        } else if (!scan_received_g) {
+        } 
+        /* ★LiDAR未使用のためコメントアウト
+        else if (!scan_received_g) {
             ROS_INFO_THROTTLE(1.0, "LiDAR not received: Stop");
             motors.stop();
-        } else {
-            // ロストしていても1秒未満であれば、直前の purpose_theta_g / purpose_distance_g を使用して追従を継続する
-            float move_theta = 0.0f;
+        } 
+        */
+        else {
+            // ★画像のみで追従するため、直接ボールの角度を進行方向に設定
+            float move_theta = purpose_theta_g; 
+
+            /* ★LiDAR経路計算をコメントアウト
             if (router.calculateBestDirection(latest_scan_g, purpose_theta_g, move_theta)) {
                 motors.DutyUpdate(move_theta, purpose_theta_g, purpose_distance_g);
                 motors.PWMshootor();
@@ -358,6 +364,11 @@ int main(int argc, char** argv) {
                 ROS_WARN_THROTTLE(1.0, "All directions blocked: Stop");
                 motors.stop();
             }
+            */
+
+            // ★モーター出力（障害物回避なしでボールへ直進）
+            motors.DutyUpdate(move_theta, purpose_theta_g, purpose_distance_g);
+            motors.PWMshootor();
         }
 
         ros::spinOnce();
